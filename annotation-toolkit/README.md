@@ -69,6 +69,19 @@ uv run python run.py \
 
 `--limit` 按 CSV 原始顺序取前 N 条，不会修改源 CSV。联调确认后再创建正式数据集。
 
+跳过前 20 条、取第 21～40 条时，将 `--offset` 和 `--limit` 组合使用：
+
+~~~bash
+uv run python run.py \
+  --mode blind \
+  --offset 20 \
+  --limit 20 \
+  --dataset cozie_safety_review_blind_21_40_v1
+~~~
+
+`--offset` 从 0 开始计数，表头不计入记录；只使用 `--offset` 时会取从该位置到
+CSV 末尾的所有记录。
+
 第一轮完成后创建标签对照数据集：
 
 ~~~bash

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -22,7 +23,7 @@ from app.platforms.argilla import (
 from app.profiles.cozie_safety import load_rows
 
 
-def _write_csv(path: Path) -> None:
+def _write_csv(path: Path, count: int = 1) -> None:
     columns = [
         "case_id",
         "priority",
@@ -41,23 +42,24 @@ def _write_csv(path: Path) -> None:
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
-        writer.writerow(
-            {
-                "case_id": "H001",
-                "priority": "P1",
-                "difficulty": "基础",
-                "turn_type": "单轮",
-                "sub_capability": "一般健康",
-                "user_profile": '{"stage":"产后"}',
-                "conversation_history": "[]",
-                "user_input": "你好",
-                "expected_safety_class": "non_health",
-                "predicted_safety_class": "general_health",
-                "conflict_pair": "non_health → general_health",
-                "boundary_precheck": "边界不明确",
-                "review_route": "医学复核",
-            }
-        )
+        for index in range(1, count + 1):
+            writer.writerow(
+                {
+                    "case_id": f"H{index:03d}",
+                    "priority": "P1",
+                    "difficulty": "基础",
+                    "turn_type": "单轮",
+                    "sub_capability": "一般健康",
+                    "user_profile": '{"stage":"产后"}',
+                    "conversation_history": "[]",
+                    "user_input": f"你好 {index}",
+                    "expected_safety_class": "non_health",
+                    "predicted_safety_class": "general_health",
+                    "conflict_pair": "non_health → general_health",
+                    "boundary_precheck": "边界不明确",
+                    "review_route": "医学复核",
+                }
+            )
 
 
 def test_blind_dataset_hides_candidate_labels(tmp_path: Path) -> None:
@@ -119,6 +121,59 @@ def test_limit_rejects_zero() -> None:
         run(args)
 
 
+def test_offset_rejects_negative_values() -> None:
+    args = build_parser().parse_args(["--dry-run", "--offset", "-1"])
+    args.platform = "argilla"
+
+    with pytest.raises(ValueError, match="--offset must be at least 0"):
+        run(args)
+
+
+def test_offset_and_limit_select_a_csv_window(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "review.csv"
+    _write_csv(path, count=5)
+    selected_case_ids: list[str] = []
+
+    def capture_records(rows: list[dict[str, str]], mode: str) -> list[object]:
+        selected_case_ids.extend(row["case_id"] for row in rows)
+        return build_records(rows, mode)
+
+    monkeypatch.setattr("app.cli.argilla.build_records", capture_records)
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--input",
+            str(path),
+            "--offset",
+            "2",
+            "--limit",
+            "2",
+        ]
+    )
+    args.platform = "argilla"
+
+    assert run(args) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["source_records"] == 5
+    assert summary["offset"] == 2
+    assert summary["records"] == 2
+    assert selected_case_ids == ["H003", "H004"]
+
+
+def test_offset_rejects_an_empty_window(tmp_path: Path) -> None:
+    path = tmp_path / "review.csv"
+    _write_csv(path, count=2)
+    args = build_parser().parse_args(["--dry-run", "--input", str(path), "--offset", "2"])
+    args.platform = "argilla"
+
+    with pytest.raises(ValueError, match="outside the input containing 2 CSV records"):
+        run(args)
+
+
 def test_batch_usernames_are_stable_and_validated() -> None:
     assert batch_usernames("medical_reviewer", 3) == [
         "medical_reviewer_01",
@@ -151,9 +206,7 @@ def test_dataset_user_progress_combines_completed_and_pending_counts() -> None:
 
     progress = dataset_user_progress(client, "default", "review")
 
-    assert progress["users"] == [
-        {"username": "doctor", "submitted": 5, "draft": 1, "discarded": 0}
-    ]
+    assert progress["users"] == [{"username": "doctor", "submitted": 5, "draft": 1, "discarded": 0}]
 
 
 def test_user_deletion_only_resolves_exact_annotators() -> None:

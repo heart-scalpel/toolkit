@@ -223,6 +223,7 @@ annotation-toolkit/workbench/input/*
 !annotation-toolkit/workbench/input/.gitkeep
 annotation-toolkit/workbench/output/*
 !annotation-toolkit/workbench/output/.gitkeep
+annotation-toolkit/workbench/.codex_csv_build/*
 
 # PyPI configuration file
 .pypirc

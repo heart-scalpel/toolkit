@@ -17,12 +17,7 @@ from app.profiles import cozie_safety
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV = PROJECT_ROOT / ".env"
-DEFAULT_INPUT = (
-    PROJECT_ROOT
-    / "workbench"
-    / "input"
-    / "safety_classifier_false_复核_医学标注.csv"
-)
+DEFAULT_INPUT = PROJECT_ROOT / "workbench" / "input" / "safety_classifier_false_复核_医学标注.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "workbench" / "output"
 
 
@@ -42,14 +37,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--limit",
         type=int,
-        help="Import only the first N CSV records, preserving CSV order",
+        help="Import at most N CSV records after --offset, preserving CSV order",
+    )
+    parser.add_argument(
+        "--offset",
+        type=int,
+        default=0,
+        help="Skip the first N CSV records before applying --limit (default: 0)",
     )
     parser.add_argument("--workspace", help="Defaults to ARGILLA_WORKSPACE or default")
     parser.add_argument("--api-url", help="Defaults to ARGILLA_API_URL or http://localhost:6900")
     parser.add_argument("--api-key", help="Defaults to ARGILLA_API_KEY; prefer using an env file")
     parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--min-submitted", type=int, default=2)
-    parser.add_argument("--dry-run", action="store_true", help="Validate without contacting a platform")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate without contacting a platform"
+    )
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument(
         "--delete-dataset",
@@ -162,6 +165,8 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("--min-submitted must be at least 1")
     if args.limit is not None and args.limit < 1:
         raise ValueError("--limit must be at least 1")
+    if args.offset < 0:
+        raise ValueError("--offset must be at least 0")
 
     api_url = args.api_url or os.getenv("ARGILLA_API_URL", "http://localhost:6900")
     api_key = args.api_key or os.getenv("ARGILLA_API_KEY")
@@ -259,9 +264,7 @@ def run(args: argparse.Namespace) -> int:
                 print("Annotator accounts selected for permanent deletion:")
                 for username in usernames:
                     print(f"- {username}")
-                confirmation = input(
-                    f"Type DELETE {len(usernames)} USERS to confirm: "
-                ).strip()
+                confirmation = input(f"Type DELETE {len(usernames)} USERS to confirm: ").strip()
                 if confirmation != f"DELETE {len(usernames)} USERS":
                     print("Deletion cancelled: confirmation did not match.")
                     return 1
@@ -364,8 +367,12 @@ def run(args: argparse.Namespace) -> int:
 
     rows = cozie_safety.load_rows(args.input)
     source_records = len(rows)
-    if args.limit is not None:
-        rows = rows[: args.limit]
+    if args.offset >= source_records:
+        raise ValueError(
+            f"--offset {args.offset} is outside the input containing {source_records} CSV records"
+        )
+    stop = None if args.limit is None else args.offset + args.limit
+    rows = rows[args.offset : stop]
     dataset_name = args.dataset or f"{cozie_safety.DEFAULT_DATASET_PREFIX}_{args.mode}_v1"
 
     if args.dry_run:
@@ -385,6 +392,7 @@ def run(args: argparse.Namespace) -> int:
         "mode": args.mode,
         "dataset": dataset_name,
         "source_records": source_records,
+        "offset": args.offset,
         "records": len(records),
         "questions": [question.name for question in settings.questions],
         "min_submitted": args.min_submitted,
