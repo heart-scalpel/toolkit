@@ -212,6 +212,18 @@ xlsx-to-csv/workbench/*.[xX][lL][sS][xX]
 xlsx-to-csv/workbench/output/*
 !xlsx-to-csv/workbench/output/.gitkeep
 
+# Local Prompt Agent datasets and results
+prompt-agent/workbench/*.csv
+prompt-agent/workbench/*.jsonl
+prompt-agent/workbench/output/*
+!prompt-agent/workbench/output/.gitkeep
+
+# Local Annotation Toolkit datasets and results
+annotation-toolkit/workbench/input/*
+!annotation-toolkit/workbench/input/.gitkeep
+annotation-toolkit/workbench/output/*
+!annotation-toolkit/workbench/output/.gitkeep
+
 # PyPI configuration file
 .pypirc
 

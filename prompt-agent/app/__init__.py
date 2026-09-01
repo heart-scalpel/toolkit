@@ -1,0 +1,1 @@
+"""Minimal OpenAI prompt agent."""

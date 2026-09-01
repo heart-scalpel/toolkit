@@ -1,0 +1,30 @@
+[project]
+name = "annotation-toolkit"
+version = "0.1.0"
+description = "Adapters for importing review tasks into annotation platforms."
+requires-python = ">=3.12"
+dependencies = [
+    "argilla==2.8.0",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.uv]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default-groups = ["dev"]

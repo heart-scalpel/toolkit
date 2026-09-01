@@ -5,6 +5,33 @@
 
 ## 工具列表
 
+### Prompt Agent
+
+目录：[prompt-agent](./prompt-agent/README.md)
+
+填写 `.env` 和 `prompt-agent/prompt.md`，再执行：
+
+~~~bash
+cd prompt-agent
+uv sync
+uv run python run.py
+~~~
+
+它会并发运行 `workbench/cases.jsonl` 中的测试，并生成 JSONL 结果。
+
+### 标注平台工具包
+
+目录：[annotation-toolkit](./annotation-toolkit/README.md)
+
+将审核 CSV 映射到 Argilla 等标注平台。当前支持 Cozie AI 安全分级的盲审和标签
+对照流程：
+
+~~~bash
+cd annotation-toolkit
+uv sync
+uv run python run.py --profile cozie-safety --mode blind --dry-run
+~~~
+
 ### XLSX 转 CSV
 
 目录：[xlsx-to-csv](./xlsx-to-csv/README.md)
@@ -26,6 +53,19 @@ xlsx-to-csv/workbench/output/工作簿名/。
 
 ~~~text
 toolkit/
+├── annotation-toolkit/
+│   ├── app/
+│   │   ├── platforms/
+│   │   └── profiles/
+│   ├── tests/
+│   ├── workbench/
+│   └── pyproject.toml
+├── prompt-agent/
+│   ├── app/
+│   ├── tests/
+│   ├── workbench/
+│   ├── prompt.md
+│   └── pyproject.toml
 ├── xlsx-to-csv/
 │   ├── app/
 │   ├── tests/

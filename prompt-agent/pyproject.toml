@@ -1,0 +1,33 @@
+[project]
+name = "prompt-agent"
+version = "0.1.0"
+description = "A minimal batch runner for an OpenAI Agents SDK prompt."
+requires-python = ">=3.12"
+dependencies = [
+    "openai-agents",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "ruff>=0.15.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.uv]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default-groups = ["dev"]
+
