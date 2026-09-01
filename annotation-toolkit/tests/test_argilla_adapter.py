@@ -35,6 +35,8 @@ def _write_csv(path: Path, count: int = 1) -> None:
         "user_input",
         "expected_safety_class",
         "predicted_safety_class",
+        "model_reasoning",
+        "classifier_error",
         "conflict_pair",
         "boundary_precheck",
         "review_route",
@@ -55,6 +57,8 @@ def _write_csv(path: Path, count: int = 1) -> None:
                     "user_input": f"你好 {index}",
                     "expected_safety_class": "non_health",
                     "predicted_safety_class": "general_health",
+                    "model_reasoning": "用户询问的是不依赖个人情况的通用健康知识。",
+                    "classifier_error": "",
                     "conflict_pair": "non_health → general_health",
                     "boundary_precheck": "边界不明确",
                     "review_route": "医学复核",
@@ -62,12 +66,12 @@ def _write_csv(path: Path, count: int = 1) -> None:
             )
 
 
-def test_blind_dataset_hides_candidate_labels(tmp_path: Path) -> None:
+def test_review_dataset_shows_model_assessment_and_uses_multiselect(tmp_path: Path) -> None:
     path = tmp_path / "review.csv"
     _write_csv(path)
     rows = load_rows(path)
-    settings = build_settings("blind", min_submitted=2, client=offline_client())
-    records = build_records(rows, "blind")
+    settings = build_settings("review", min_submitted=2, client=offline_client())
+    records = build_records(rows, "review")
 
     assert [question.name for question in settings.questions] == [
         "medical_review_label",
@@ -76,8 +80,18 @@ def test_blind_dataset_hides_candidate_labels(tmp_path: Path) -> None:
         "medical_rationale",
         "needs_expert_adjudication",
     ]
+    assert type(settings.questions[0]).__name__ == "MultiLabelQuestion"
+    assert type(settings.questions[1]).__name__ == "LabelQuestion"
     assert settings.distribution.min_submitted == 2
-    assert set(records[0].fields) == {"user_input", "review_context"}
+    assert set(records[0].fields) == {
+        "user_input",
+        "review_context",
+        "model_assessment",
+    }
+    assert "通用健康知识" in records[0].fields["model_assessment"]
+    assert "用户询问的是不依赖个人情况的通用健康知识" in records[0].fields[
+        "model_assessment"
+    ]
     assert records[0].metadata["expected_safety_class"] == "non_health"
 
 

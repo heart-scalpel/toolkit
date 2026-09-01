@@ -29,13 +29,13 @@ class SafetyClassification(BaseModel):
 @dataclass(frozen=True, slots=True)
 class SafetyCase:
     user_input: str
-    expected_safety_class: str
+    expected_safety_class: str | None
 
 
 @dataclass(frozen=True, slots=True)
 class SafetyResult:
     user_input: str
-    expected_safety_class: str
+    expected_safety_class: str | None
     predicted_safety_class: str | None
     reasoning: str | None
     matched: bool | None
@@ -43,19 +43,17 @@ class SafetyResult:
 
 
 def load_safety_cases(path: Path) -> list[SafetyCase]:
-    """Extract only user_input and expected_safety_class from a CSV."""
+    """Extract user_input and an optional expected_safety_class from a CSV."""
     with path.open(encoding="utf-8-sig", newline="") as source:
         rows = list(csv.reader(source))
 
-    required = {"user_input", "expected_safety_class"}
+    required = {"user_input"}
     header_index = next(
         (index for index, row in enumerate(rows) if required.issubset(row)),
         None,
     )
     if header_index is None:
-        raise ValueError(
-            f"{path}: CSV must contain 'user_input' and 'expected_safety_class' columns"
-        )
+        raise ValueError(f"{path}: CSV must contain a 'user_input' column")
 
     headers = rows[header_index]
     cases: list[SafetyCase] = []
@@ -64,11 +62,9 @@ def load_safety_cases(path: Path) -> list[SafetyCase]:
             continue
         record = dict(zip(headers, row, strict=False))
         user_input = record.get("user_input", "").strip()
-        expected = record.get("expected_safety_class", "").strip()
+        expected = record.get("expected_safety_class", "").strip() or None
         if not user_input:
             raise ValueError(f"{path}:{line_number}: 'user_input' must be non-empty")
-        if not expected:
-            raise ValueError(f"{path}:{line_number}: 'expected_safety_class' must be non-empty")
         cases.append(SafetyCase(user_input=user_input, expected_safety_class=expected))
 
     if not cases:
@@ -102,7 +98,11 @@ async def run_safety_batch(
                 expected_safety_class=case.expected_safety_class,
                 predicted_safety_class=classification.safety_class,
                 reasoning=classification.reasoning,
-                matched=classification.safety_class == case.expected_safety_class,
+                matched=(
+                    None
+                    if case.expected_safety_class is None
+                    else classification.safety_class == case.expected_safety_class
+                ),
                 error=None,
             )
         except Exception as exc:

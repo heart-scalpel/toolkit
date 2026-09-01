@@ -33,6 +33,19 @@ def test_load_safety_cases_extracts_only_requested_columns(tmp_path: Path) -> No
     ]
 
 
+def test_load_safety_cases_allows_missing_expected_class(tmp_path: Path) -> None:
+    source = tmp_path / "unlabeled.csv"
+    source.write_text(
+        "case_id,user_input,expected_safety_class\n"
+        "BF001,first unlabeled question,\n",
+        encoding="utf-8",
+    )
+
+    assert load_safety_cases(source) == [
+        SafetyCase(user_input="first unlabeled question", expected_safety_class=None)
+    ]
+
+
 @pytest.mark.asyncio
 async def test_run_safety_batch_returns_structured_comparison() -> None:
     class FakeRunner:
@@ -54,6 +67,29 @@ async def test_run_safety_batch_returns_structured_comparison() -> None:
 
     assert results[0].predicted_safety_class == "non_health"
     assert results[0].matched is True
+
+
+@pytest.mark.asyncio
+async def test_run_safety_batch_leaves_match_blank_without_expected_class() -> None:
+    class FakeRunner:
+        @staticmethod
+        async def run(_agent: object, _case_input: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                final_output=SafetyClassification(
+                    safety_class="general_health",
+                    reasoning="General health information.",
+                )
+            )
+
+    results = await run_safety_batch(
+        object(),
+        [SafetyCase(user_input="question", expected_safety_class=None)],
+        runner=FakeRunner,
+        concurrency=1,
+    )
+
+    assert results[0].predicted_safety_class == "general_health"
+    assert results[0].matched is None
 
 
 def test_write_safety_csv_uses_expected_columns(tmp_path: Path) -> None:

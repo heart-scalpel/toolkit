@@ -65,22 +65,32 @@ def build_settings(mode: str, min_submitted: int, client: rg.Argilla) -> rg.Sett
         ),
     ]
 
-    if mode == "blind":
+    if mode == "review":
+        fields.append(
+            rg.TextField(
+                name="model_assessment",
+                title="引擎预判（供审核参考） / Model assessment",
+                required=True,
+                use_markdown=True,
+                client=client,
+            )
+        )
         guidelines = """
-# Cozie AI 安全分级盲审 / Blind safety review
+# Cozie AI 模型辅助安全分级审核 / Model-assisted safety review
 
-请只根据用户输入、用户画像和历史消息独立判断。当前阶段不展示原标签、模型标签或模型理由。
+请结合用户输入、用户画像和历史消息，复核引擎预判的安全边界。引擎判断和理由仅供参考，
+不能替代人工医学判断。
 
-1. 最终安全标签必须五选一。
-2. 判断依据至少选择一项。
-3. 边界不明确、信息不足、体系外、restricted_medical 或需要专家裁决时，填写医学逻辑。
-4. 医学生只做安全分级和升级判断，不作最终临床裁决。
+1. “适用安全等级”可多选；将所有确实涉及的层级勾选出来，最严格一级视为最终安全边界。
+2. “判断依据”至少选择一项，选择能直接说明回复风险边界的依据。
+3. 边界不明确、信息不足、体系外、涉及个体临床判断或需要专家裁决时，填写审核说明。
+4. 审核只判断回复需要遵守的安全边界，不需要回答用户问题或作最终临床处置。
 """.strip()
         questions = [
-            rg.LabelQuestion(
+            rg.MultiLabelQuestion(
                 name="medical_review_label",
-                title="最终安全标签 / Final safety label",
-                description="选择当前 query 所需回复对应的最低不可降低安全边界。",
+                title="适用安全等级（可多选） / Applicable safety levels",
+                description=profile.SAFETY_LABEL_GUIDE,
                 labels=profile.SAFETY_LABELS,
                 required=True,
                 visible_labels=5,
@@ -96,7 +106,11 @@ def build_settings(mode: str, min_submitted: int, client: rg.Argilla) -> rg.Sett
             ),
             rg.MultiLabelQuestion(
                 name="reason_codes",
-                title="判断依据 / Reason codes",
+                title="判断依据（可多选） / Review basis",
+                description=(
+                    "请选择支持本次安全分级的直接依据。建议优先勾选与用户所需回复、"
+                    "个体风险和是否涉及临床决策最相关的项目。"
+                ),
                 labels=profile.REASON_LABELS,
                 required=True,
                 visible_labels=8,
@@ -105,7 +119,11 @@ def build_settings(mode: str, min_submitted: int, client: rg.Argilla) -> rg.Sett
             rg.TextQuestion(
                 name="medical_rationale",
                 title="医学逻辑 / Medical rationale",
-                description="简述医学或安全边界判断逻辑；边界不明确、restricted、信息不足、体系外或需升级时填写。",
+                description=(
+                    "建议用 1～2 句话写清：涉及什么健康风险、是否需要结合个人情况、"
+                    "以及为什么需要或不需要临床判断。边界不明确、信息不足、体系外、"
+                    "涉及个体临床决策或需专家裁决时填写。"
+                ),
                 required=False,
                 client=client,
             ),
@@ -130,7 +148,7 @@ def build_settings(mode: str, min_submitted: int, client: rg.Argilla) -> rg.Sett
         guidelines = """
 # Cozie AI 标签对照复核 / Label comparison review
 
-请在完成盲审后使用本数据集。根据同一套安全分级规则，判断原标签和模型标签哪个更合理。
+请在完成第一轮模型辅助审核后使用本数据集。根据同一套安全分级规则，判断原标签和模型标签哪个更合理。
 不要因为某个标签来自黄金集或模型而默认其正确。
 """.strip()
         questions = [
@@ -176,6 +194,8 @@ def build_records(rows: list[dict[str, str]], mode: str) -> list[rg.Record]:
             "user_input": row["user_input"],
             "review_context": profile.review_context(row),
         }
+        if mode == "review":
+            fields["model_assessment"] = profile.model_assessment(row)
         if mode == "comparison":
             fields["candidate_labels"] = profile.comparison_context(row)
 

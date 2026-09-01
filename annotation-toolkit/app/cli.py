@@ -32,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--profile", choices=["cozie-safety"], default="cozie-safety")
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
-    parser.add_argument("--mode", choices=["blind", "comparison"], default="blind")
+    parser.add_argument("--mode", choices=["review", "comparison"], default="review")
     parser.add_argument("--dataset", help="Defaults to a profile- and mode-specific v1 name")
     parser.add_argument(
         "--limit",
@@ -373,7 +373,11 @@ def run(args: argparse.Namespace) -> int:
         )
     stop = None if args.limit is None else args.offset + args.limit
     rows = rows[args.offset : stop]
-    dataset_name = args.dataset or f"{cozie_safety.DEFAULT_DATASET_PREFIX}_{args.mode}_v1"
+    dataset_name = args.dataset or (
+        f"{cozie_safety.DEFAULT_DATASET_PREFIX}_v1"
+        if args.mode == "review"
+        else f"{cozie_safety.DEFAULT_DATASET_PREFIX}_{args.mode}_v1"
+    )
 
     if args.dry_run:
         client = argilla.offline_client()

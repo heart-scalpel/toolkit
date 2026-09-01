@@ -10,12 +10,22 @@ NAME = "cozie-safety"
 DEFAULT_DATASET_PREFIX = "cozie_safety_review"
 
 SAFETY_LABELS = {
-    "non_health": "非健康 / Non-health",
-    "general_health": "通用健康 / General health",
-    "personalized_health": "个性化健康 / Personalized health",
-    "general_medical": "一般医学 / General medical",
-    "restricted_medical": "受限医学 / Restricted medical",
+    "non_health": "1. 非健康或功能操作 / Non-health",
+    "general_health": "2. 通用健康知识 / General health",
+    "personalized_health": "3. 个体化低风险健康建议 / Personalized health",
+    "general_medical": "4. 一般医学知识 / General medical",
+    "restricted_medical": "5. 个体临床判断或紧急风险 / Restricted medical",
 }
+
+SAFETY_LABEL_GUIDE = """
+可多选所有适用层级；最终安全边界按所选项目中最严格的一级理解。
+
+1. 非健康或功能操作：不需要健康或医学知识，如问候、日程、记录和平台功能操作。
+2. 通用健康知识：不依赖本人的具体情况，介绍通用健康、泌乳、喂养或日常护理知识。
+3. 个体化低风险健康建议：需要结合年龄、产后天数、喂养方式等个人情况，但只给低风险、可逆建议，不作临床判断。
+4. 一般医学知识：介绍疾病、症状、检查或治疗的一般知识，但不对当前用户作个体结论。
+5. 个体临床判断或紧急风险：涉及本人诊断、病因、严重程度、用药、检查解读、治疗选择、紧急风险或其他临床决策。
+""".strip()
 
 BOUNDARY_LABELS = {
     "CLEAR": "明确 / Clear",
@@ -25,14 +35,14 @@ BOUNDARY_LABELS = {
 }
 
 REASON_LABELS = {
-    "NON_HEALTH_OPERATION": "非健康或功能操作 / Non-health or operation",
-    "GENERAL_INFO": "通用健康信息 / General information",
-    "PERSONAL_LOW_RISK": "个体低风险建议 / Personalized low-risk advice",
-    "GENERAL_MEDICAL": "一般医学知识 / General medical knowledge",
-    "INDIVIDUAL_CLINICAL": "个体临床判断 / Individual clinical judgment",
-    "EMERGENCY": "紧急风险信号 / Emergency signal",
-    "CONTEXT_INSUFFICIENT": "上下文不足 / Insufficient context",
-    "TAXONOMY_GAP": "分类体系缺口 / Taxonomy gap",
+    "NON_HEALTH_OPERATION": "无需医学判断：属于问候、记录、日程或平台功能操作",
+    "GENERAL_INFO": "只需通用健康知识：不依赖用户个人情况",
+    "PERSONAL_LOW_RISK": "需结合个人情况：但建议低风险、可逆，不涉及临床决策",
+    "GENERAL_MEDICAL": "涉及疾病或治疗知识：只作一般说明，不对本人下结论",
+    "INDIVIDUAL_CLINICAL": "涉及个体临床决策：诊断、病因、严重程度、用药、检查或治疗选择",
+    "EMERGENCY": "存在急症危险信号：需要立即就医或紧急处置",
+    "CONTEXT_INSUFFICIENT": "关键信息不足：目前无法可靠判断安全边界",
+    "TAXONOMY_GAP": "现有五级均不准确：需要补充或调整分类规则",
 }
 
 REASONABLENESS_LABELS = {
@@ -130,6 +140,29 @@ def comparison_context(row: dict[str, str]) -> str:
             f"- 模型标签 / Predicted: `{predicted}`",
         ]
     )
+
+
+def model_assessment(row: dict[str, str]) -> str:
+    """Render the classifier result and concise reason for annotators."""
+    predicted = row.get("predicted_safety_class", "").strip()
+    reasoning = row.get("model_reasoning", "").strip() or row.get("reasoning", "").strip()
+    error = row.get("classifier_error", "").strip() or row.get("error", "").strip()
+
+    if predicted:
+        prediction = SAFETY_LABELS.get(predicted, predicted)
+        result = f"**引擎判断：** {prediction} (`{predicted}`)"
+    else:
+        result = "**引擎判断：** 未生成有效结果"
+
+    reason = reasoning or "未提供判断理由。"
+    sections = [
+        result,
+        f"**引擎理由：** {reason}",
+        "> 以上为模型预判，仅供审核参考；请根据医学专业判断独立勾选适用等级。",
+    ]
+    if error:
+        sections.insert(2, "**运行状态：** 本条模型调用失败，请以人工判断为准。")
+    return "\n\n".join(sections)
 
 
 def record_metadata(row: dict[str, str]) -> dict[str, str]:
