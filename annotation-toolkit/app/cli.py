@@ -6,6 +6,8 @@ import argparse
 import csv
 import json
 import os
+import random
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -37,13 +39,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--limit",
         type=int,
-        help="Import at most N CSV records after --offset, preserving CSV order",
+        help=(
+            "Import at most N CSV records after --offset "
+            "(preserves CSV order unless --random is used)"
+        ),
     )
     parser.add_argument(
         "--offset",
         type=int,
         default=0,
         help="Skip the first N CSV records before applying --limit (default: 0)",
+    )
+    parser.add_argument(
+        "--random",
+        action="store_true",
+        help=(
+            "Randomly sample after --offset; within each round, sub_capability and "
+            "predicted_safety_class are each unique; requires --limit"
+        ),
     )
     parser.add_argument("--workspace", help="Defaults to ARGILLA_WORKSPACE or default")
     parser.add_argument("--api-url", help="Defaults to ARGILLA_API_URL or http://localhost:6900")
@@ -156,6 +169,126 @@ def _write_export(path: Path, columns: list[str], rows: list[dict[str, object]])
         writer.writerows(rows)
 
 
+def _balanced_random_sample(
+    rows: list[dict[str, str]],
+    limit: int,
+    *,
+    rng: random.Random | None = None,
+) -> list[dict[str, str]]:
+    """Globally distribute valid rows into balanced random rounds."""
+    randomizer = rng or random.Random()
+    real_buckets: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
+    for row in rows:
+        sub_capability = row.get("sub_capability", "").strip()
+        safety_class = row.get("predicted_safety_class", "").strip()
+        if sub_capability and safety_class:
+            real_buckets[(sub_capability, safety_class)].append(row)
+
+    if not real_buckets:
+        return []
+
+    sub_capabilities = list({key[0] for key in real_buckets})
+    safety_classes = list({key[1] for key in real_buckets})
+    randomizer.shuffle(sub_capabilities)
+    randomizer.shuffle(safety_classes)
+    sub_index = {value: index for index, value in enumerate(sub_capabilities)}
+    class_index = {value: index for index, value in enumerate(safety_classes)}
+
+    vertex_count = max(len(sub_capabilities), len(safety_classes))
+    edge_buckets: dict[tuple[int, int], list[dict[str, str] | None]] = defaultdict(list)
+    left_degree = [0] * vertex_count
+    right_degree = [0] * vertex_count
+    for (sub_capability, safety_class), bucket in real_buckets.items():
+        left = sub_index[sub_capability]
+        right = class_index[safety_class]
+        edge_buckets[(left, right)].extend(bucket)
+        left_degree[left] += len(bucket)
+        right_degree[right] += len(bucket)
+
+    # Treat every row as an edge between the two sampling fields. Padding the
+    # graph to a regular bipartite multigraph lets each perfect matching form
+    # one round and spreads high-frequency values across all rounds.
+    round_count = max(max(left_degree), max(right_degree))
+    left_deficit = [round_count - degree for degree in left_degree]
+    right_deficit = [round_count - degree for degree in right_degree]
+    left = right = 0
+    while left < vertex_count and right < vertex_count:
+        if left_deficit[left] == 0:
+            left += 1
+            continue
+        if right_deficit[right] == 0:
+            right += 1
+            continue
+        amount = min(left_deficit[left], right_deficit[right])
+        edge_buckets[(left, right)].extend([None] * amount)
+        left_deficit[left] -= amount
+        right_deficit[right] -= amount
+
+    for bucket in edge_buckets.values():
+        randomizer.shuffle(bucket)
+
+    rounds: list[list[dict[str, str]]] = []
+    for _ in range(round_count):
+        adjacency: dict[int, list[int]] = defaultdict(list)
+        for (left, right), bucket in edge_buckets.items():
+            if bucket:
+                adjacency[left].append(right)
+
+        left_vertices = list(range(vertex_count))
+        randomizer.shuffle(left_vertices)
+        for right_vertices in adjacency.values():
+            randomizer.shuffle(right_vertices)
+
+        matched_by_right: dict[int, int] = {}
+
+        def assign(left_vertex: int, seen_right: set[int]) -> bool:
+            for right_vertex in adjacency[left_vertex]:
+                if right_vertex in seen_right:
+                    continue
+                seen_right.add(right_vertex)
+                previous_left = matched_by_right.get(right_vertex)
+                if previous_left is None or assign(previous_left, seen_right):
+                    matched_by_right[right_vertex] = left_vertex
+                    return True
+            return False
+
+        for left_vertex in left_vertices:
+            if not assign(left_vertex, set()):
+                raise RuntimeError("failed to build a balanced random sampling round")
+
+        sample_round: list[dict[str, str]] = []
+        for right_vertex, left_vertex in matched_by_right.items():
+            row = edge_buckets[(left_vertex, right_vertex)].pop()
+            if row is not None:
+                sample_round.append(row)
+        rounds.append(sample_round)
+
+    randomizer.shuffle(rounds)
+    selected: list[dict[str, str]] = []
+    for sample_round in rounds:
+        randomizer.shuffle(sample_round)
+        if selected:
+            previous = selected[-1]
+            compatible = [
+                index
+                for index, row in enumerate(sample_round)
+                if row["sub_capability"].strip()
+                != previous["sub_capability"].strip()
+                and row["predicted_safety_class"].strip()
+                != previous["predicted_safety_class"].strip()
+            ]
+            if compatible:
+                first = randomizer.choice(compatible)
+                sample_round[0], sample_round[first] = sample_round[first], sample_round[0]
+
+        remaining_limit = limit - len(selected)
+        selected.extend(sample_round[:remaining_limit])
+        if len(selected) == limit:
+            break
+
+    return selected
+
+
 def run(args: argparse.Namespace) -> int:
     if args.platform != "argilla":
         raise ValueError(f"unsupported platform: {args.platform}")
@@ -167,6 +300,8 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError("--limit must be at least 1")
     if args.offset < 0:
         raise ValueError("--offset must be at least 0")
+    if args.random and args.limit is None:
+        raise ValueError("--random requires --limit")
 
     api_url = args.api_url or os.getenv("ARGILLA_API_URL", "http://localhost:6900")
     api_key = args.api_key or os.getenv("ARGILLA_API_KEY")
@@ -371,8 +506,17 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError(
             f"--offset {args.offset} is outside the input containing {source_records} CSV records"
         )
-    stop = None if args.limit is None else args.offset + args.limit
-    rows = rows[args.offset : stop]
+    rows = rows[args.offset :]
+    excluded_empty_sampling_fields = 0
+    if args.random:
+        excluded_empty_sampling_fields = sum(
+            not row.get("sub_capability", "").strip()
+            or not row.get("predicted_safety_class", "").strip()
+            for row in rows
+        )
+        rows = _balanced_random_sample(rows, args.limit)
+    elif args.limit is not None:
+        rows = rows[: args.limit]
     dataset_name = args.dataset or (
         f"{cozie_safety.DEFAULT_DATASET_PREFIX}_v1"
         if args.mode == "review"
@@ -397,6 +541,8 @@ def run(args: argparse.Namespace) -> int:
         "dataset": dataset_name,
         "source_records": source_records,
         "offset": args.offset,
+        "sampling": "balanced_random" if args.random else "ordered",
+        "excluded_empty_sampling_fields": excluded_empty_sampling_fields,
         "records": len(records),
         "questions": [question.name for question in settings.questions],
         "min_submitted": args.min_submitted,

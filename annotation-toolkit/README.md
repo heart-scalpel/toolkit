@@ -82,6 +82,22 @@ uv run python run.py \
 `--offset` 从 0 开始计数，表头不计入记录；只使用 `--offset` 时会取从该位置到
 CSV 末尾的所有记录。
 
+需要随机且尽量均匀地抽取不同场景和分类时，增加 `--random`：
+
+~~~bash
+uv run python run.py \
+  --mode review \
+  --offset 20 \
+  --limit 20 \
+  --random \
+  --dataset cozie_safety_review_random_20_v1
+~~~
+
+`--random` 必须和 `--limit` 一起使用。候选范围从 `--offset` 指定的位置开始到 CSV
+末尾。空的 `sub_capability` 或 `predicted_safety_class` 不参与随机抽样。算法根据全局
+分布预先拆分轮次，使数量较多的类型均匀分散；每轮中两个字段都分别不重复，轮次
+交界处也会尽量避免重复。抽样会持续到达到 `--limit` 或有效候选耗尽。
+
 第一轮完成后创建标签对照数据集：
 
 ~~~bash

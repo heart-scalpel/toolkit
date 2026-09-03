@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.cli import build_parser, run
+from app.cli import _balanced_random_sample, build_parser, run
 from app.platforms.argilla import (
     batch_usernames,
     build_records,
@@ -186,6 +186,153 @@ def test_offset_rejects_an_empty_window(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="outside the input containing 2 CSV records"):
         run(args)
+
+
+def test_random_requires_limit() -> None:
+    args = build_parser().parse_args(["--dry-run", "--random"])
+    args.platform = "argilla"
+
+    with pytest.raises(ValueError, match="--random requires --limit"):
+        run(args)
+
+
+def test_balanced_random_sample_keeps_both_fields_unique_within_each_round() -> None:
+    rows = [
+        {
+            "case_id": f"{sub_capability}-{safety_class}-{index}",
+            "sub_capability": sub_capability,
+            "predicted_safety_class": safety_class,
+        }
+        for sub_capability, safety_class in [
+            ("feeding", "general_health"),
+            ("feeding", "personalized_health"),
+            ("storage", "general_health"),
+            ("storage", "personalized_health"),
+        ]
+        for index in range(2)
+    ]
+
+    selected = _balanced_random_sample(rows, limit=5)
+
+    assert len(selected) == 5
+    for sample_round in (selected[:2], selected[2:4]):
+        assert len({row["sub_capability"] for row in sample_round}) == 2
+        assert len({row["predicted_safety_class"] for row in sample_round}) == 2
+    assert len({row["case_id"] for row in selected}) == 5
+
+
+def test_balanced_random_sample_starts_new_round_when_only_one_pair_remains() -> None:
+    rows = [
+        {
+            "case_id": f"feeding-{index}",
+            "sub_capability": "feeding",
+            "predicted_safety_class": "personalized_health",
+        }
+        for index in range(4)
+    ]
+    rows.append(
+        {
+            "case_id": "storage-0",
+            "sub_capability": "storage",
+            "predicted_safety_class": "general_health",
+        }
+    )
+
+    selected = _balanced_random_sample(rows, limit=5)
+
+    assert len(selected) == 5
+    assert "storage-0" in {row["case_id"] for row in selected}
+    assert len({row["case_id"] for row in selected}) == 5
+
+
+def test_balanced_random_sample_excludes_empty_sampling_fields() -> None:
+    rows = [
+        {
+            "case_id": "valid-1",
+            "sub_capability": "feeding",
+            "predicted_safety_class": "personalized_health",
+        },
+        {
+            "case_id": "empty-class",
+            "sub_capability": "storage",
+            "predicted_safety_class": "",
+        },
+        {
+            "case_id": "empty-sub-capability",
+            "sub_capability": "",
+            "predicted_safety_class": "general_health",
+        },
+        {
+            "case_id": "valid-2",
+            "sub_capability": "storage",
+            "predicted_safety_class": "general_health",
+        },
+    ]
+
+    selected = _balanced_random_sample(rows, limit=4)
+
+    assert {row["case_id"] for row in selected} == {"valid-1", "valid-2"}
+
+
+def test_balanced_random_sample_spreads_dominant_values_across_all_rounds() -> None:
+    rows = [
+        {
+            "case_id": f"dominant-{index}",
+            "sub_capability": "dominant",
+            "predicted_safety_class": "general_health",
+        }
+        for index in range(6)
+    ]
+    rows.extend(
+        {
+            "case_id": f"minor-{index}",
+            "sub_capability": "minor-a" if index < 3 else "minor-b",
+            "predicted_safety_class": "personalized_health",
+        }
+        for index in range(6)
+    )
+
+    selected = _balanced_random_sample(rows, limit=12)
+
+    assert len(selected) == 12
+    for previous, current in zip(selected, selected[1:], strict=False):
+        assert previous["sub_capability"] != current["sub_capability"]
+        assert previous["predicted_safety_class"] != current["predicted_safety_class"]
+
+
+def test_random_sampling_starts_after_offset(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "review.csv"
+    _write_csv(path, count=5)
+    selected_case_ids: list[str] = []
+
+    def capture_records(rows: list[dict[str, str]], mode: str) -> list[object]:
+        selected_case_ids.extend(row["case_id"] for row in rows)
+        return build_records(rows, mode)
+
+    monkeypatch.setattr("app.cli.argilla.build_records", capture_records)
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--input",
+            str(path),
+            "--offset",
+            "2",
+            "--limit",
+            "2",
+            "--random",
+        ]
+    )
+    args.platform = "argilla"
+
+    assert run(args) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["sampling"] == "balanced_random"
+    assert summary["records"] == 2
+    assert set(selected_case_ids) <= {"H003", "H004", "H005"}
 
 
 def test_batch_usernames_are_stable_and_validated() -> None:

@@ -32,6 +32,19 @@ uv sync
 uv run python run.py --profile cozie-safety --mode blind --dry-run
 ~~~
 
+### 审核 CSV 查询工具包
+
+目录：[review-query-toolkit](./review-query-toolkit/README.md)
+
+针对审核导出的 CSV 做概览、筛选、双人一致性分析、分歧查询和结果导出：
+
+```bash
+cd review-query-toolkit
+uv sync
+uv run python run.py summary
+uv run python run.py agreement --completed-only
+```
+
 ### XLSX 转 CSV
 
 目录：[xlsx-to-csv](./xlsx-to-csv/README.md)
@@ -67,6 +80,12 @@ toolkit/
 │   ├── prompt.md
 │   └── pyproject.toml
 ├── xlsx-to-csv/
+│   ├── app/
+│   ├── tests/
+│   ├── workbench/
+│   ├── pyproject.toml
+│   └── uv.lock
+├── review-query-toolkit/
 │   ├── app/
 │   ├── tests/
 │   ├── workbench/

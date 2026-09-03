@@ -225,6 +225,12 @@ annotation-toolkit/workbench/output/*
 !annotation-toolkit/workbench/output/.gitkeep
 annotation-toolkit/workbench/.codex_csv_build/*
 
+# Local Review Query Toolkit data and exports
+review-query-toolkit/workbench/input/*
+!review-query-toolkit/workbench/input/.gitkeep
+review-query-toolkit/workbench/output/*
+!review-query-toolkit/workbench/output/.gitkeep
+
 # PyPI configuration file
 .pypirc
 
