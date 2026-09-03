@@ -6,8 +6,6 @@ import argparse
 import csv
 import json
 import os
-import random
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -15,11 +13,11 @@ import argilla as rg
 from dotenv import load_dotenv
 
 from app.platforms import argilla
-from app.profiles import cozie_safety
+from app.profiles import get_profile, profile_names
+from app.sampling import balanced_random_sample, ordered_sample
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV = PROJECT_ROOT / ".env"
-DEFAULT_INPUT = PROJECT_ROOT / "workbench" / "input" / "safety_classifier_false_复核_医学标注.csv"
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "workbench" / "output"
 
 
@@ -32,9 +30,13 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["argilla"],
         help="Defaults to ANNOTATION_PLATFORM or argilla",
     )
-    parser.add_argument("--profile", choices=["cozie-safety"], default="cozie-safety")
-    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
-    parser.add_argument("--mode", choices=["review", "comparison"], default="review")
+    parser.add_argument("--profile", choices=profile_names(), default=profile_names()[0])
+    parser.add_argument(
+        "--input",
+        type=Path,
+        help="CSV input; defaults to the file declared by the selected profile",
+    )
+    parser.add_argument("--mode", default="review", help="Profile-defined annotation mode")
     parser.add_argument("--dataset", help="Defaults to a profile- and mode-specific v1 name")
     parser.add_argument(
         "--limit",
@@ -54,8 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--random",
         action="store_true",
         help=(
-            "Randomly sample after --offset; within each round, sub_capability and "
-            "predicted_safety_class are each unique; requires --limit"
+            "Use balanced random sampling after --offset with the fields declared "
+            "by the selected profile; requires --limit"
         ),
     )
     parser.add_argument("--workspace", help="Defaults to ARGILLA_WORKSPACE or default")
@@ -106,8 +108,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--user-prefix",
-        default="medical_reviewer",
-        help="Username prefix for --create-users (default: medical_reviewer)",
+        help="Username prefix for account operations; defaults to the selected profile",
     )
     parser.add_argument(
         "--credentials-out",
@@ -169,131 +170,18 @@ def _write_export(path: Path, columns: list[str], rows: list[dict[str, object]])
         writer.writerows(rows)
 
 
-def _balanced_random_sample(
-    rows: list[dict[str, str]],
-    limit: int,
-    *,
-    rng: random.Random | None = None,
-) -> list[dict[str, str]]:
-    """Globally distribute valid rows into balanced random rounds."""
-    randomizer = rng or random.Random()
-    real_buckets: dict[tuple[str, str], list[dict[str, str]]] = defaultdict(list)
-    for row in rows:
-        sub_capability = row.get("sub_capability", "").strip()
-        safety_class = row.get("predicted_safety_class", "").strip()
-        if sub_capability and safety_class:
-            real_buckets[(sub_capability, safety_class)].append(row)
-
-    if not real_buckets:
-        return []
-
-    sub_capabilities = list({key[0] for key in real_buckets})
-    safety_classes = list({key[1] for key in real_buckets})
-    randomizer.shuffle(sub_capabilities)
-    randomizer.shuffle(safety_classes)
-    sub_index = {value: index for index, value in enumerate(sub_capabilities)}
-    class_index = {value: index for index, value in enumerate(safety_classes)}
-
-    vertex_count = max(len(sub_capabilities), len(safety_classes))
-    edge_buckets: dict[tuple[int, int], list[dict[str, str] | None]] = defaultdict(list)
-    left_degree = [0] * vertex_count
-    right_degree = [0] * vertex_count
-    for (sub_capability, safety_class), bucket in real_buckets.items():
-        left = sub_index[sub_capability]
-        right = class_index[safety_class]
-        edge_buckets[(left, right)].extend(bucket)
-        left_degree[left] += len(bucket)
-        right_degree[right] += len(bucket)
-
-    # Treat every row as an edge between the two sampling fields. Padding the
-    # graph to a regular bipartite multigraph lets each perfect matching form
-    # one round and spreads high-frequency values across all rounds.
-    round_count = max(max(left_degree), max(right_degree))
-    left_deficit = [round_count - degree for degree in left_degree]
-    right_deficit = [round_count - degree for degree in right_degree]
-    left = right = 0
-    while left < vertex_count and right < vertex_count:
-        if left_deficit[left] == 0:
-            left += 1
-            continue
-        if right_deficit[right] == 0:
-            right += 1
-            continue
-        amount = min(left_deficit[left], right_deficit[right])
-        edge_buckets[(left, right)].extend([None] * amount)
-        left_deficit[left] -= amount
-        right_deficit[right] -= amount
-
-    for bucket in edge_buckets.values():
-        randomizer.shuffle(bucket)
-
-    rounds: list[list[dict[str, str]]] = []
-    for _ in range(round_count):
-        adjacency: dict[int, list[int]] = defaultdict(list)
-        for (left, right), bucket in edge_buckets.items():
-            if bucket:
-                adjacency[left].append(right)
-
-        left_vertices = list(range(vertex_count))
-        randomizer.shuffle(left_vertices)
-        for right_vertices in adjacency.values():
-            randomizer.shuffle(right_vertices)
-
-        matched_by_right: dict[int, int] = {}
-
-        def assign(left_vertex: int, seen_right: set[int]) -> bool:
-            for right_vertex in adjacency[left_vertex]:
-                if right_vertex in seen_right:
-                    continue
-                seen_right.add(right_vertex)
-                previous_left = matched_by_right.get(right_vertex)
-                if previous_left is None or assign(previous_left, seen_right):
-                    matched_by_right[right_vertex] = left_vertex
-                    return True
-            return False
-
-        for left_vertex in left_vertices:
-            if not assign(left_vertex, set()):
-                raise RuntimeError("failed to build a balanced random sampling round")
-
-        sample_round: list[dict[str, str]] = []
-        for right_vertex, left_vertex in matched_by_right.items():
-            row = edge_buckets[(left_vertex, right_vertex)].pop()
-            if row is not None:
-                sample_round.append(row)
-        rounds.append(sample_round)
-
-    randomizer.shuffle(rounds)
-    selected: list[dict[str, str]] = []
-    for sample_round in rounds:
-        randomizer.shuffle(sample_round)
-        if selected:
-            previous = selected[-1]
-            compatible = [
-                index
-                for index, row in enumerate(sample_round)
-                if row["sub_capability"].strip()
-                != previous["sub_capability"].strip()
-                and row["predicted_safety_class"].strip()
-                != previous["predicted_safety_class"].strip()
-            ]
-            if compatible:
-                first = randomizer.choice(compatible)
-                sample_round[0], sample_round[first] = sample_round[first], sample_round[0]
-
-        remaining_limit = limit - len(selected)
-        selected.extend(sample_round[:remaining_limit])
-        if len(selected) == limit:
-            break
-
-    return selected
-
-
 def run(args: argparse.Namespace) -> int:
     if args.platform != "argilla":
         raise ValueError(f"unsupported platform: {args.platform}")
-    if args.profile != cozie_safety.NAME:
-        raise ValueError(f"unsupported profile: {args.profile}")
+    profile = get_profile(args.profile)
+    input_path = args.input or PROJECT_ROOT / "workbench" / "input" / profile.default_input_name
+    user_prefix = args.user_prefix or profile.default_user_prefix
+    if args.mode not in profile.modes:
+        choices = ", ".join(profile.modes)
+        raise ValueError(
+            f"unsupported mode for profile {profile.name!r}: {args.mode}; "
+            f"available modes: {choices}"
+        )
     if args.min_submitted < 1:
         raise ValueError("--min-submitted must be at least 1")
     if args.limit is not None and args.limit < 1:
@@ -392,7 +280,7 @@ def run(args: argparse.Namespace) -> int:
             usernames = (
                 [args.delete_user]
                 if args.delete_user
-                else argilla.batch_usernames(args.user_prefix, args.delete_users)
+                else argilla.batch_usernames(user_prefix, args.delete_users)
             )
             users = argilla.resolve_deletable_annotators(client, usernames)
             if not args.yes:
@@ -417,7 +305,7 @@ def run(args: argparse.Namespace) -> int:
             )
             return 0
 
-        usernames = argilla.batch_usernames(args.user_prefix, args.create_users)
+        usernames = argilla.batch_usernames(user_prefix, args.create_users)
         argilla.ensure_users_do_not_exist(client, usernames)
         credentials_path = args.credentials_out or _default_credentials_path()
         credentials = [
@@ -500,28 +388,24 @@ def run(args: argparse.Namespace) -> int:
         )
         return 0
 
-    rows = cozie_safety.load_rows(args.input)
+    profile_input = profile.load_input(input_path)
+    rows = profile_input.rows
     source_records = len(rows)
     if args.offset >= source_records:
         raise ValueError(
             f"--offset {args.offset} is outside the input containing {source_records} CSV records"
         )
     rows = rows[args.offset :]
-    excluded_empty_sampling_fields = 0
     if args.random:
-        excluded_empty_sampling_fields = sum(
-            not row.get("sub_capability", "").strip()
-            or not row.get("predicted_safety_class", "").strip()
-            for row in rows
+        sampling = balanced_random_sample(
+            rows,
+            args.limit,
+            profile.sampling_fields,
         )
-        rows = _balanced_random_sample(rows, args.limit)
-    elif args.limit is not None:
-        rows = rows[: args.limit]
-    dataset_name = args.dataset or (
-        f"{cozie_safety.DEFAULT_DATASET_PREFIX}_v1"
-        if args.mode == "review"
-        else f"{cozie_safety.DEFAULT_DATASET_PREFIX}_{args.mode}_v1"
-    )
+    else:
+        sampling = ordered_sample(rows, args.limit)
+    rows = sampling.rows
+    dataset_name = args.dataset or profile.default_dataset_name(args.mode)
 
     if args.dry_run:
         client = argilla.offline_client()
@@ -532,17 +416,21 @@ def run(args: argparse.Namespace) -> int:
             )
         client = rg.Argilla(api_url=api_url, api_key=api_key)
 
-    settings = argilla.build_settings(args.mode, args.min_submitted, client)
-    records = argilla.build_records(rows, args.mode)
+    task_spec = profile.task_spec(args.mode)
+    record_specs = [profile.record_spec(row, args.mode) for row in rows]
+    settings = argilla.build_settings(task_spec, args.min_submitted, client)
+    records = argilla.build_records(record_specs)
     summary = {
         "platform": args.platform,
         "profile": args.profile,
+        "input_format": profile_input.source_format,
         "mode": args.mode,
         "dataset": dataset_name,
         "source_records": source_records,
         "offset": args.offset,
         "sampling": "balanced_random" if args.random else "ordered",
-        "excluded_empty_sampling_fields": excluded_empty_sampling_fields,
+        "sampling_fields": list(profile.sampling_fields) if args.random else [],
+        "excluded_empty_sampling_fields": sampling.excluded_missing_fields,
         "records": len(records),
         "questions": [question.name for question in settings.questions],
         "min_submitted": args.min_submitted,

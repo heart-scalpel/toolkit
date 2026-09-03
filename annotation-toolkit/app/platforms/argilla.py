@@ -10,7 +10,7 @@ from typing import cast
 
 import argilla as rg
 
-from app.profiles import cozie_safety as profile
+from app.core import QuestionSpec, RecordSpec, TaskSpec
 
 USERNAME_PREFIX_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 
@@ -34,179 +34,74 @@ def resolve_workspace(client: rg.Argilla, requested: str) -> str:
     raise ValueError(f"workspace {requested!r} not found; available workspaces: {choices}")
 
 
-def _metadata_settings(client: rg.Argilla) -> list[rg.TermsMetadataProperty]:
+def _metadata_settings(
+    task: TaskSpec,
+    client: rg.Argilla,
+) -> list[rg.TermsMetadataProperty]:
     return [
         rg.TermsMetadataProperty(
-            name=name,
-            title=name,
-            visible_for_annotators=name in profile.VISIBLE_METADATA,
+            name=item.name,
+            title=item.title,
+            visible_for_annotators=item.visible_for_annotators,
             client=client,
         )
-        for name in profile.METADATA_NAMES
+        for item in task.metadata
     ]
 
 
-def build_settings(mode: str, min_submitted: int, client: rg.Argilla) -> rg.Settings:
-    """Build an immutable Argilla dataset schema for one review stage."""
+def _question(spec: QuestionSpec, client: rg.Argilla) -> rg.Question:
+    common: dict[str, object] = {
+        "name": spec.name,
+        "title": spec.title,
+        "required": spec.required,
+        "client": client,
+    }
+    if spec.description is not None:
+        common["description"] = spec.description
+    if spec.kind == "text":
+        return rg.TextQuestion(**common)
+
+    common["labels"] = dict(spec.labels)
+    if spec.visible_labels is not None:
+        common["visible_labels"] = spec.visible_labels
+    if spec.kind == "label":
+        return rg.LabelQuestion(**common)
+    if spec.kind == "multi_label":
+        return rg.MultiLabelQuestion(**common)
+    raise ValueError(f"unsupported question kind: {spec.kind}")
+
+
+def build_settings(task: TaskSpec, min_submitted: int, client: rg.Argilla) -> rg.Settings:
+    """Translate a platform-neutral task specification to Argilla settings."""
     fields = [
         rg.TextField(
-            name="user_input",
-            title="用户输入 / User input",
-            required=True,
-            use_markdown=False,
+            name=field.name,
+            title=field.title,
+            required=field.required,
+            use_markdown=field.use_markdown,
             client=client,
-        ),
-        rg.TextField(
-            name="review_context",
-            title="审核上下文 / Review context",
-            required=False,
-            use_markdown=True,
-            client=client,
-        ),
+        )
+        for field in task.fields
     ]
-
-    if mode == "review":
-        fields.append(
-            rg.TextField(
-                name="model_assessment",
-                title="引擎预判（供审核参考） / Model assessment",
-                required=True,
-                use_markdown=True,
-                client=client,
-            )
-        )
-        guidelines = """
-# Cozie AI 模型辅助安全分级审核 / Model-assisted safety review
-
-请结合用户输入、用户画像和历史消息，复核引擎预判的安全边界。引擎判断和理由仅供参考，
-不能替代人工医学判断。
-
-1. “适用安全等级”可多选；将所有确实涉及的层级勾选出来，最严格一级视为最终安全边界。
-2. “判断依据”至少选择一项，选择能直接说明回复风险边界的依据。
-3. 边界不明确、信息不足、体系外、涉及个体临床判断或需要专家裁决时，填写审核说明。
-4. 审核只判断回复需要遵守的安全边界，不需要回答用户问题或作最终临床处置。
-""".strip()
-        questions = [
-            rg.MultiLabelQuestion(
-                name="medical_review_label",
-                title="适用安全等级（可多选） / Applicable safety levels",
-                description=profile.SAFETY_LABEL_GUIDE,
-                labels=profile.SAFETY_LABELS,
-                required=True,
-                visible_labels=5,
-                client=client,
-            ),
-            rg.LabelQuestion(
-                name="boundary_status",
-                title="边界状态 / Boundary status",
-                labels=profile.BOUNDARY_LABELS,
-                required=True,
-                visible_labels=4,
-                client=client,
-            ),
-            rg.MultiLabelQuestion(
-                name="reason_codes",
-                title="判断依据（可多选） / Review basis",
-                description=(
-                    "请选择支持本次安全分级的直接依据。建议优先勾选与用户所需回复、"
-                    "个体风险和是否涉及临床决策最相关的项目。"
-                ),
-                labels=profile.REASON_LABELS,
-                required=True,
-                visible_labels=8,
-                client=client,
-            ),
-            rg.TextQuestion(
-                name="medical_rationale",
-                title="医学逻辑 / Medical rationale",
-                description=(
-                    "建议用 1～2 句话写清：涉及什么健康风险、是否需要结合个人情况、"
-                    "以及为什么需要或不需要临床判断。边界不明确、信息不足、体系外、"
-                    "涉及个体临床决策或需专家裁决时填写。"
-                ),
-                required=False,
-                client=client,
-            ),
-            rg.LabelQuestion(
-                name="needs_expert_adjudication",
-                title="是否需要专家裁决 / Expert adjudication required",
-                labels=profile.YES_NO_LABELS,
-                required=True,
-                client=client,
-            ),
-        ]
-    elif mode == "comparison":
-        fields.append(
-            rg.TextField(
-                name="candidate_labels",
-                title="待比较标签 / Labels to compare",
-                required=True,
-                use_markdown=True,
-                client=client,
-            )
-        )
-        guidelines = """
-# Cozie AI 标签对照复核 / Label comparison review
-
-请在完成第一轮模型辅助审核后使用本数据集。根据同一套安全分级规则，判断原标签和模型标签哪个更合理。
-不要因为某个标签来自黄金集或模型而默认其正确。
-""".strip()
-        questions = [
-            rg.LabelQuestion(
-                name="label_reasonableness",
-                title="标签合理性 / Label reasonableness",
-                labels=profile.REASONABLENESS_LABELS,
-                required=True,
-                visible_labels=5,
-                client=client,
-            ),
-            rg.TextQuestion(
-                name="medical_rationale",
-                title="医学逻辑 / Medical rationale",
-                description="简述标签合理性的医学或安全边界逻辑；两者都不合理、信息不足或需升级时填写。",
-                required=False,
-                client=client,
-            ),
-            rg.LabelQuestion(
-                name="needs_expert_adjudication",
-                title="是否需要专家裁决 / Expert adjudication required",
-                labels=profile.YES_NO_LABELS,
-                required=True,
-                client=client,
-            ),
-        ]
-    else:
-        raise ValueError(f"unsupported mode: {mode}")
-
     return rg.Settings(
-        guidelines=guidelines,
+        guidelines=task.guidelines,
         fields=fields,
-        questions=questions,
-        metadata=_metadata_settings(client),
+        questions=[_question(question, client) for question in task.questions],
+        metadata=_metadata_settings(task, client),
         distribution=rg.TaskDistribution(min_submitted=min_submitted),
     )
 
 
-def build_records(rows: list[dict[str, str]], mode: str) -> list[rg.Record]:
-    records: list[rg.Record] = []
-    for row in rows:
-        fields = {
-            "user_input": row["user_input"],
-            "review_context": profile.review_context(row),
-        }
-        if mode == "review":
-            fields["model_assessment"] = profile.model_assessment(row)
-        if mode == "comparison":
-            fields["candidate_labels"] = profile.comparison_context(row)
-
-        records.append(
-            rg.Record(
-                id=row["case_id"].strip(),
-                fields=fields,
-                metadata=profile.record_metadata(row),
-            )
+def build_records(specs: list[RecordSpec]) -> list[rg.Record]:
+    """Translate platform-neutral records to Argilla records."""
+    return [
+        rg.Record(
+            id=spec.id,
+            fields=dict(spec.fields),
+            metadata=dict(spec.metadata),
         )
-    return records
+        for spec in specs
+    ]
 
 
 def create_dataset(
@@ -327,9 +222,7 @@ def resolve_deletable_annotators(
         if getattr(user.role, "value", str(user.role)) != "annotator"
     ]
     if protected:
-        raise ValueError(
-            "refusing to delete non-annotator users: " + ", ".join(protected)
-        )
+        raise ValueError("refusing to delete non-annotator users: " + ", ".join(protected))
     if client.me.username in usernames:
         raise ValueError("refusing to delete the currently connected user")
     return users
@@ -372,11 +265,9 @@ def dataset_user_progress(
         users.append(
             {
                 "username": username,
-                "submitted": completed.get("submitted", 0)
-                + pending.get("submitted", 0),
+                "submitted": completed.get("submitted", 0) + pending.get("submitted", 0),
                 "draft": completed.get("draft", 0) + pending.get("draft", 0),
-                "discarded": completed.get("discarded", 0)
-                + pending.get("discarded", 0),
+                "discarded": completed.get("discarded", 0) + pending.get("discarded", 0),
             }
         )
     return {
@@ -439,14 +330,9 @@ def submitted_response_rows(
         for user_id, answers in responses_by_user.items():
             row: dict[str, object] = {"record_id": str(record.id)}
             row.update(
-                {
-                    name: _export_cell(record.metadata.get(name, ""))
-                    for name in metadata_names
-                }
+                {name: _export_cell(record.metadata.get(name, "")) for name in metadata_names}
             )
-            row.update(
-                {name: _export_cell(record.fields.get(name, "")) for name in field_names}
-            )
+            row.update({name: _export_cell(record.fields.get(name, "")) for name in field_names})
             row.update(
                 {
                     "annotator_username": users_by_id.get(user_id, "unknown"),

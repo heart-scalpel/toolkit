@@ -1,10 +1,21 @@
 """Cozie AI safety-classification review profile."""
 
+# ruff: noqa: RUF001 -- Chinese punctuation is intentional user-facing copy.
+
 from __future__ import annotations
 
-import csv
 import json
 from pathlib import Path
+
+from app.core import (
+    FieldSpec,
+    MetadataSpec,
+    ProfileInput,
+    QuestionSpec,
+    RecordSpec,
+    TaskSpec,
+)
+from app.inputs import read_csv
 
 NAME = "cozie-safety"
 DEFAULT_DATASET_PREFIX = "cozie_safety_review"
@@ -58,14 +69,7 @@ YES_NO_LABELS = {
     "NO": "否 / No",
 }
 
-REQUIRED_COLUMNS = {
-    "case_id",
-    "user_profile",
-    "conversation_history",
-    "user_input",
-    "expected_safety_class",
-    "predicted_safety_class",
-}
+REQUIRED_COLUMNS = {"user_input"}
 
 METADATA_NAMES = (
     "case_id",
@@ -90,24 +94,8 @@ VISIBLE_METADATA = {
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
-    """Load and validate a reviewed CSV without changing its order."""
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        columns = set(reader.fieldnames or [])
-        missing = sorted(REQUIRED_COLUMNS - columns)
-        if missing:
-            raise ValueError(f"{path}: missing columns: {', '.join(missing)}")
-        rows = list(reader)
-
-    if not rows:
-        raise ValueError(f"{path}: no records found")
-
-    case_ids = [row["case_id"].strip() for row in rows]
-    if any(not case_id for case_id in case_ids):
-        raise ValueError(f"{path}: case_id cannot be empty")
-    if len(case_ids) != len(set(case_ids)):
-        raise ValueError(f"{path}: duplicate case_id found")
-    return rows
+    """Compatibility helper returning rows normalized by this profile."""
+    return PROFILE.load_input(path).rows
 
 
 def _format_json(raw: str) -> str:
@@ -166,8 +154,223 @@ def model_assessment(row: dict[str, str]) -> str:
 
 
 def record_metadata(row: dict[str, str]) -> dict[str, str]:
-    return {
-        name: row[name].strip()
-        for name in METADATA_NAMES
-        if name in row and row[name].strip()
-    }
+    return {name: row[name].strip() for name in METADATA_NAMES if name in row and row[name].strip()}
+
+
+REVIEW_GUIDELINES = """
+# Cozie AI 模型辅助安全分级审核 / Model-assisted safety review
+
+请结合用户输入、用户画像和历史消息，复核引擎预判的安全边界。引擎判断和理由仅供参考，
+不能替代人工医学判断。
+
+1. “适用安全等级”可多选；将所有确实涉及的层级勾选出来，最严格一级视为最终安全边界。
+2. “判断依据”至少选择一项，选择能直接说明回复风险边界的依据。
+3. 边界不明确、信息不足、体系外、涉及个体临床判断或需要专家裁决时，填写审核说明。
+4. 审核只判断回复需要遵守的安全边界，不需要回答用户问题或作最终临床处置。
+""".strip()
+
+COMPARISON_GUIDELINES = """
+# Cozie AI 标签对照复核 / Label comparison review
+
+请在完成第一轮模型辅助审核后使用本数据集。根据同一套安全分级规则，判断原标签和模型标签哪个更合理。
+不要因为某个标签来自黄金集或模型而默认其正确。
+""".strip()
+
+
+class CozieSafetyProfile:
+    """Cozie safety business rules and source normalization."""
+
+    name = NAME
+    modes = ("review", "comparison")
+    default_dataset_prefix = DEFAULT_DATASET_PREFIX
+    default_input_name = "safety_classifier_false_复核_医学标注.csv"
+    default_user_prefix = "medical_reviewer"
+    sampling_fields = ("sub_capability", "predicted_safety_class")
+
+    def load_input(self, path: Path) -> ProfileInput:
+        table = read_csv(path)
+        columns = set(table.columns)
+        missing = sorted(REQUIRED_COLUMNS - columns)
+        if missing:
+            raise ValueError(f"{path}: missing columns: {', '.join(missing)}")
+
+        source_format = (
+            "annotation-ready"
+            if "case_id" in columns
+            else "classifier-results"
+            if columns & {"reasoning", "matched", "error"}
+            else "generic-csv"
+        )
+        normalized: list[dict[str, str]] = []
+        for index, source in enumerate(table.rows, start=1):
+            row = dict(source)
+            row["case_id"] = row.get("case_id", "").strip() or f"ROW{index:06d}"
+            row.setdefault("user_profile", "")
+            row["conversation_history"] = row.get("conversation_history", "").strip() or "[]"
+            row.setdefault("expected_safety_class", "")
+            row.setdefault("predicted_safety_class", "")
+            row["model_reasoning"] = (
+                row.get("model_reasoning", "").strip() or row.get("reasoning", "").strip()
+            )
+            row["classifier_error"] = (
+                row.get("classifier_error", "").strip() or row.get("error", "").strip()
+            )
+            normalized.append(row)
+
+        if any(not row["user_input"].strip() for row in normalized):
+            raise ValueError(f"{path}: user_input cannot be empty")
+        case_ids = [row["case_id"] for row in normalized]
+        if len(case_ids) != len(set(case_ids)):
+            raise ValueError(f"{path}: duplicate case_id found")
+        return ProfileInput(source_format=source_format, rows=normalized)
+
+    def task_spec(self, mode: str) -> TaskSpec:
+        self._validate_mode(mode)
+        fields = [
+            FieldSpec(
+                name="user_input",
+                title="用户输入 / User input",
+                required=True,
+            ),
+            FieldSpec(
+                name="review_context",
+                title="审核上下文 / Review context",
+                use_markdown=True,
+            ),
+        ]
+        if mode == "review":
+            fields.append(
+                FieldSpec(
+                    name="model_assessment",
+                    title="引擎预判（供审核参考） / Model assessment",
+                    required=True,
+                    use_markdown=True,
+                )
+            )
+            questions = (
+                QuestionSpec(
+                    kind="multi_label",
+                    name="medical_review_label",
+                    title="适用安全等级（可多选） / Applicable safety levels",
+                    description=SAFETY_LABEL_GUIDE,
+                    labels=SAFETY_LABELS,
+                    required=True,
+                    visible_labels=5,
+                ),
+                QuestionSpec(
+                    kind="label",
+                    name="boundary_status",
+                    title="边界状态 / Boundary status",
+                    labels=BOUNDARY_LABELS,
+                    required=True,
+                    visible_labels=4,
+                ),
+                QuestionSpec(
+                    kind="multi_label",
+                    name="reason_codes",
+                    title="判断依据（可多选） / Review basis",
+                    description=(
+                        "请选择支持本次安全分级的直接依据。建议优先勾选与用户所需回复、"
+                        "个体风险和是否涉及临床决策最相关的项目。"
+                    ),
+                    labels=REASON_LABELS,
+                    required=True,
+                    visible_labels=8,
+                ),
+                QuestionSpec(
+                    kind="text",
+                    name="medical_rationale",
+                    title="医学逻辑 / Medical rationale",
+                    description=(
+                        "建议用 1～2 句话写清：涉及什么健康风险、是否需要结合个人情况、"
+                        "以及为什么需要或不需要临床判断。边界不明确、信息不足、体系外、"
+                        "涉及个体临床决策或需专家裁决时填写。"
+                    ),
+                ),
+                QuestionSpec(
+                    kind="label",
+                    name="needs_expert_adjudication",
+                    title="是否需要专家裁决 / Expert adjudication required",
+                    labels=YES_NO_LABELS,
+                    required=True,
+                ),
+            )
+            guidelines = REVIEW_GUIDELINES
+        else:
+            fields.append(
+                FieldSpec(
+                    name="candidate_labels",
+                    title="待比较标签 / Labels to compare",
+                    required=True,
+                    use_markdown=True,
+                )
+            )
+            questions = (
+                QuestionSpec(
+                    kind="label",
+                    name="label_reasonableness",
+                    title="标签合理性 / Label reasonableness",
+                    labels=REASONABLENESS_LABELS,
+                    required=True,
+                    visible_labels=5,
+                ),
+                QuestionSpec(
+                    kind="text",
+                    name="medical_rationale",
+                    title="医学逻辑 / Medical rationale",
+                    description=(
+                        "简述标签合理性的医学或安全边界逻辑；两者都不合理、信息不足或需升级时填写。"
+                    ),
+                ),
+                QuestionSpec(
+                    kind="label",
+                    name="needs_expert_adjudication",
+                    title="是否需要专家裁决 / Expert adjudication required",
+                    labels=YES_NO_LABELS,
+                    required=True,
+                ),
+            )
+            guidelines = COMPARISON_GUIDELINES
+
+        metadata = tuple(
+            MetadataSpec(
+                name=name,
+                title=name,
+                visible_for_annotators=name in VISIBLE_METADATA,
+            )
+            for name in METADATA_NAMES
+        )
+        return TaskSpec(
+            guidelines=guidelines,
+            fields=tuple(fields),
+            questions=questions,
+            metadata=metadata,
+        )
+
+    def record_spec(self, row: dict[str, str], mode: str) -> RecordSpec:
+        self._validate_mode(mode)
+        fields = {
+            "user_input": row["user_input"],
+            "review_context": review_context(row),
+        }
+        if mode == "review":
+            fields["model_assessment"] = model_assessment(row)
+        else:
+            fields["candidate_labels"] = comparison_context(row)
+        return RecordSpec(
+            id=row["case_id"].strip(),
+            fields=fields,
+            metadata=record_metadata(row),
+        )
+
+    def default_dataset_name(self, mode: str) -> str:
+        self._validate_mode(mode)
+        suffix = "" if mode == "review" else f"_{mode}"
+        return f"{self.default_dataset_prefix}{suffix}_v1"
+
+    def _validate_mode(self, mode: str) -> None:
+        if mode not in self.modes:
+            raise ValueError(f"unsupported mode for profile {self.name!r}: {mode}")
+
+
+PROFILE = CozieSafetyProfile()

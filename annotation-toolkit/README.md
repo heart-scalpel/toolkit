@@ -5,8 +5,11 @@
 ~~~text
 annotation-toolkit/
 ├── app/
-│   ├── profiles/          # 字段、标签、数据映射和审核阶段
-│   ├── platforms/         # Argilla 等平台适配器
+│   ├── core/              # 平台无关的 TaskSpec / RecordSpec
+│   ├── inputs/            # CSV 等通用输入读取器
+│   ├── profiles/          # 业务校验、归一化、标签和审核阶段
+│   ├── platforms/         # 将通用规格翻译到 Argilla 等平台
+│   ├── sampling.py        # 顺序、均匀随机等选择策略
 │   └── cli.py
 ├── docs/
 ├── tests/
@@ -58,6 +61,14 @@ uv run python run.py --profile cozie-safety --mode review --dry-run
 uv run python run.py --profile cozie-safety --mode review
 ~~~
 
+`cozie-safety` Profile 当前可自动识别两类 CSV：
+
+- annotation-ready：已有 `case_id` 以及完整或部分标注辅助字段；
+- classifier-results：只有分类器输出时，会补充稳定的行号 ID、空用户画像和空历史消息，
+  并将 `reasoning/error` 归一化为 `model_reasoning/classifier_error`。
+
+两类输入最终都会转换为相同的内部记录；平台适配器不读取原始 CSV，也不包含业务字段名。
+
 只导入 CSV 中前 5 条做联调时，使用独立数据集名称，避免和正式数据集混淆：
 
 ~~~bash
@@ -94,7 +105,9 @@ uv run python run.py \
 ~~~
 
 `--random` 必须和 `--limit` 一起使用。候选范围从 `--offset` 指定的位置开始到 CSV
-末尾。空的 `sub_capability` 或 `predicted_safety_class` 不参与随机抽样。算法根据全局
+末尾。抽样字段由 Profile 声明；`cozie-safety` 使用 `sub_capability` 和
+`predicted_safety_class`。缺少任一字段值的记录不参与随机抽样；如果没有任何有效候选，
+命令会明确报错，不会创建空数据集。算法根据全局
 分布预先拆分轮次，使数量较多的类型均匀分散；每轮中两个字段都分别不重复，轮次
 交界处也会尽量避免重复。抽样会持续到达到 `--limit` 或有效候选耗尽。
 
@@ -199,11 +212,15 @@ uv run python run.py --delete-users 10 --user-prefix medical_reviewer
 删除用户前建议先导出标注结果；Argilla 官方文档只保证删除后账号不能再登录，未承诺
 历史响应一定保留。凭据 CSV 不会随账号自动删除，便于保留本地分配审计记录。
 
-## Profile 与平台适配器
+## 框架、Profile 与平台适配器
+
+框架层只处理 CSV 读取、Profile 注册、offset/limit、抽样、导入导出和命令编排。
+`TaskSpec` 与 `RecordSpec` 是框架和平台之间的稳定中间模型，不依赖 Argilla SDK。
 
 `app/profiles/cozie_safety.py` 只负责审核任务本身：
 
-- CSV 必需字段
+- 不同来源 CSV 到标准记录的归一化
+- 业务必需字段和默认值
 - 五级中英双语标签
 - 边界状态和理由码
 - 医学逻辑 / `medical_rationale`
@@ -211,13 +228,13 @@ uv run python run.py --delete-users 10 --user-prefix medical_reviewer
 
 `app/platforms/argilla.py` 只负责 Argilla：
 
-- 把字段和问题映射到 Argilla Settings
+- 把通用 TaskSpec、RecordSpec 映射到 Argilla Settings、Record
 - 创建数据集和上传记录
 - 设置多人提交数
 - 解析 workspace
 
-以后增加其他任务时新增 profile；增加其他标注平台时新增 platform adapter，不需要修改
-Prompt Agent。
+以后增加其他任务时实现并注册新的 Profile；同一任务增加新的 CSV 结构时，只扩展该
+Profile 的输入归一化；增加其他标注平台时新增 platform adapter。三者无需互相导入。
 
 ## 数据与密钥
 

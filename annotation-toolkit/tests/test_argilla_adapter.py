@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import csv
 import json
+from itertools import pairwise
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
-from app.cli import _balanced_random_sample, build_parser, run
+from app.cli import build_parser, run
+from app.core import RecordSpec
 from app.platforms.argilla import (
     batch_usernames,
     build_records,
@@ -20,7 +22,18 @@ from app.platforms.argilla import (
     resolve_workspace,
     submitted_response_rows,
 )
+from app.profiles import get_profile
 from app.profiles.cozie_safety import load_rows
+from app.sampling import balanced_random_sample
+
+PROFILE = get_profile("cozie-safety")
+
+
+def _balanced_rows(
+    rows: list[dict[str, str]],
+    limit: int,
+) -> list[dict[str, str]]:
+    return balanced_random_sample(rows, limit, PROFILE.sampling_fields).rows
 
 
 def _write_csv(path: Path, count: int = 1) -> None:
@@ -70,8 +83,12 @@ def test_review_dataset_shows_model_assessment_and_uses_multiselect(tmp_path: Pa
     path = tmp_path / "review.csv"
     _write_csv(path)
     rows = load_rows(path)
-    settings = build_settings("review", min_submitted=2, client=offline_client())
-    records = build_records(rows, "review")
+    settings = build_settings(
+        PROFILE.task_spec("review"),
+        min_submitted=2,
+        client=offline_client(),
+    )
+    records = build_records([PROFILE.record_spec(row, "review") for row in rows])
 
     assert [question.name for question in settings.questions] == [
         "medical_review_label",
@@ -89,9 +106,7 @@ def test_review_dataset_shows_model_assessment_and_uses_multiselect(tmp_path: Pa
         "model_assessment",
     }
     assert "通用健康知识" in records[0].fields["model_assessment"]
-    assert "用户询问的是不依赖个人情况的通用健康知识" in records[0].fields[
-        "model_assessment"
-    ]
+    assert "用户询问的是不依赖个人情况的通用健康知识" in records[0].fields["model_assessment"]
     assert records[0].metadata["expected_safety_class"] == "non_health"
 
 
@@ -99,7 +114,7 @@ def test_comparison_dataset_shows_both_candidate_labels(tmp_path: Path) -> None:
     path = tmp_path / "review.csv"
     _write_csv(path)
     rows = load_rows(path)
-    records = build_records(rows, "comparison")
+    records = build_records([PROFILE.record_spec(row, "comparison") for row in rows])
 
     comparison = records[0].fields["candidate_labels"]
     assert "non_health" in comparison
@@ -152,9 +167,9 @@ def test_offset_and_limit_select_a_csv_window(
     _write_csv(path, count=5)
     selected_case_ids: list[str] = []
 
-    def capture_records(rows: list[dict[str, str]], mode: str) -> list[object]:
-        selected_case_ids.extend(row["case_id"] for row in rows)
-        return build_records(rows, mode)
+    def capture_records(specs: list[RecordSpec]) -> list[object]:
+        selected_case_ids.extend(spec.id for spec in specs)
+        return build_records(specs)
 
     monkeypatch.setattr("app.cli.argilla.build_records", capture_records)
     args = build_parser().parse_args(
@@ -212,7 +227,7 @@ def test_balanced_random_sample_keeps_both_fields_unique_within_each_round() -> 
         for index in range(2)
     ]
 
-    selected = _balanced_random_sample(rows, limit=5)
+    selected = _balanced_rows(rows, limit=5)
 
     assert len(selected) == 5
     for sample_round in (selected[:2], selected[2:4]):
@@ -238,7 +253,7 @@ def test_balanced_random_sample_starts_new_round_when_only_one_pair_remains() ->
         }
     )
 
-    selected = _balanced_random_sample(rows, limit=5)
+    selected = _balanced_rows(rows, limit=5)
 
     assert len(selected) == 5
     assert "storage-0" in {row["case_id"] for row in selected}
@@ -269,7 +284,7 @@ def test_balanced_random_sample_excludes_empty_sampling_fields() -> None:
         },
     ]
 
-    selected = _balanced_random_sample(rows, limit=4)
+    selected = _balanced_rows(rows, limit=4)
 
     assert {row["case_id"] for row in selected} == {"valid-1", "valid-2"}
 
@@ -292,10 +307,10 @@ def test_balanced_random_sample_spreads_dominant_values_across_all_rounds() -> N
         for index in range(6)
     )
 
-    selected = _balanced_random_sample(rows, limit=12)
+    selected = _balanced_rows(rows, limit=12)
 
     assert len(selected) == 12
-    for previous, current in zip(selected, selected[1:], strict=False):
+    for previous, current in pairwise(selected):
         assert previous["sub_capability"] != current["sub_capability"]
         assert previous["predicted_safety_class"] != current["predicted_safety_class"]
 
@@ -309,9 +324,9 @@ def test_random_sampling_starts_after_offset(
     _write_csv(path, count=5)
     selected_case_ids: list[str] = []
 
-    def capture_records(rows: list[dict[str, str]], mode: str) -> list[object]:
-        selected_case_ids.extend(row["case_id"] for row in rows)
-        return build_records(rows, mode)
+    def capture_records(specs: list[RecordSpec]) -> list[object]:
+        selected_case_ids.extend(spec.id for spec in specs)
+        return build_records(specs)
 
     monkeypatch.setattr("app.cli.argilla.build_records", capture_records)
     args = build_parser().parse_args(
