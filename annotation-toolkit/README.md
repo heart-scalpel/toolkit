@@ -61,18 +61,21 @@ uv run python run.py --profile cozie-safety --mode review --dry-run
 uv run python run.py --profile cozie-safety --mode review
 ~~~
 
-`cozie-safety` Profile 当前可自动识别两类 CSV：
+导入 CSV 时必须显式指定业务 Profile。`cozie-safety` 是当前的安全分级业务包，内部可
+识别两类已知 CSV：
 
 - annotation-ready：已有 `case_id` 以及完整或部分标注辅助字段；
 - classifier-results：只有分类器输出时，会补充稳定的行号 ID、空用户画像和空历史消息，
   并将 `reasoning/error` 归一化为 `model_reasoning/classifier_error`。
 
 两类输入最终都会转换为相同的内部记录；平台适配器不读取原始 CSV，也不包含业务字段名。
+不符合这两类结构的文件会报错；新业务应实现并注册新的 Profile，而不是由框架猜测。
 
 只导入 CSV 中前 5 条做联调时，使用独立数据集名称，避免和正式数据集混淆：
 
 ~~~bash
 uv run python run.py \
+  --profile cozie-safety \
   --mode review \
   --limit 5 \
   --dataset cozie_safety_review_smoke_v1
@@ -84,6 +87,7 @@ uv run python run.py \
 
 ~~~bash
 uv run python run.py \
+  --profile cozie-safety \
   --mode review \
   --offset 20 \
   --limit 20 \
@@ -97,6 +101,7 @@ CSV 末尾的所有记录。
 
 ~~~bash
 uv run python run.py \
+  --profile cozie-safety \
   --mode review \
   --offset 20 \
   --limit 20 \

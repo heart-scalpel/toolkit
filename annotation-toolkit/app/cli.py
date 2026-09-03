@@ -30,7 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["argilla"],
         help="Defaults to ANNOTATION_PLATFORM or argilla",
     )
-    parser.add_argument("--profile", choices=profile_names(), default=profile_names()[0])
+    parser.add_argument(
+        "--profile",
+        choices=profile_names(),
+        help="Business profile; required when importing a CSV",
+    )
     parser.add_argument(
         "--input",
         type=Path,
@@ -173,10 +177,11 @@ def _write_export(path: Path, columns: list[str], rows: list[dict[str, object]])
 def run(args: argparse.Namespace) -> int:
     if args.platform != "argilla":
         raise ValueError(f"unsupported platform: {args.platform}")
-    profile = get_profile(args.profile)
-    input_path = args.input or PROJECT_ROOT / "workbench" / "input" / profile.default_input_name
-    user_prefix = args.user_prefix or profile.default_user_prefix
-    if args.mode not in profile.modes:
+    profile = get_profile(args.profile) if args.profile else None
+    user_prefix = args.user_prefix or (
+        profile.default_user_prefix if profile is not None else "annotator"
+    )
+    if profile is not None and args.mode not in profile.modes:
         choices = ", ".join(profile.modes)
         raise ValueError(
             f"unsupported mode for profile {profile.name!r}: {args.mode}; "
@@ -388,6 +393,13 @@ def run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if profile is None:
+        raise ValueError(
+            "--profile is required when importing a CSV; "
+            f"available profiles: {', '.join(profile_names())}"
+        )
+
+    input_path = args.input or PROJECT_ROOT / "workbench" / "input" / profile.default_input_name
     profile_input = profile.load_input(input_path)
     rows = profile_input.rows
     source_records = len(rows)

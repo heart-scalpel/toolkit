@@ -29,7 +29,7 @@ uv run python run.py
 ~~~bash
 cd annotation-toolkit
 uv sync
-uv run python run.py --profile cozie-safety --mode blind --dry-run
+uv run python run.py --profile cozie-safety --mode review --dry-run
 ~~~
 
 ### 审核 CSV 查询工具包

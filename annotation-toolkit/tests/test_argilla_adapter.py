@@ -158,6 +158,16 @@ def test_offset_rejects_negative_values() -> None:
         run(args)
 
 
+def test_csv_import_requires_an_explicit_business_profile(tmp_path: Path) -> None:
+    path = tmp_path / "review.csv"
+    _write_csv(path)
+    args = build_parser().parse_args(["--dry-run", "--input", str(path)])
+    args.platform = "argilla"
+
+    with pytest.raises(ValueError, match="--profile is required when importing a CSV"):
+        run(args)
+
+
 def test_offset_and_limit_select_a_csv_window(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -175,6 +185,8 @@ def test_offset_and_limit_select_a_csv_window(
     args = build_parser().parse_args(
         [
             "--dry-run",
+            "--profile",
+            "cozie-safety",
             "--input",
             str(path),
             "--offset",
@@ -196,7 +208,17 @@ def test_offset_and_limit_select_a_csv_window(
 def test_offset_rejects_an_empty_window(tmp_path: Path) -> None:
     path = tmp_path / "review.csv"
     _write_csv(path, count=2)
-    args = build_parser().parse_args(["--dry-run", "--input", str(path), "--offset", "2"])
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--profile",
+            "cozie-safety",
+            "--input",
+            str(path),
+            "--offset",
+            "2",
+        ]
+    )
     args.platform = "argilla"
 
     with pytest.raises(ValueError, match="outside the input containing 2 CSV records"):
@@ -332,6 +354,8 @@ def test_random_sampling_starts_after_offset(
     args = build_parser().parse_args(
         [
             "--dry-run",
+            "--profile",
+            "cozie-safety",
             "--input",
             str(path),
             "--offset",

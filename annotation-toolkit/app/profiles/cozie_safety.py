@@ -69,7 +69,16 @@ YES_NO_LABELS = {
     "NO": "否 / No",
 }
 
-REQUIRED_COLUMNS = {"user_input"}
+ANNOTATION_READY_COLUMNS = {
+    "case_id",
+    "user_input",
+    "expected_safety_class",
+    "predicted_safety_class",
+}
+CLASSIFIER_RESULT_COLUMNS = {
+    "user_input",
+    "predicted_safety_class",
+}
 
 METADATA_NAMES = (
     "case_id",
@@ -190,17 +199,18 @@ class CozieSafetyProfile:
     def load_input(self, path: Path) -> ProfileInput:
         table = read_csv(path)
         columns = set(table.columns)
-        missing = sorted(REQUIRED_COLUMNS - columns)
-        if missing:
-            raise ValueError(f"{path}: missing columns: {', '.join(missing)}")
-
-        source_format = (
-            "annotation-ready"
-            if "case_id" in columns
-            else "classifier-results"
-            if columns & {"reasoning", "matched", "error"}
-            else "generic-csv"
-        )
+        if columns >= ANNOTATION_READY_COLUMNS:
+            source_format = "annotation-ready"
+        elif columns >= CLASSIFIER_RESULT_COLUMNS:
+            source_format = "classifier-results"
+        else:
+            annotation_columns = ", ".join(sorted(ANNOTATION_READY_COLUMNS))
+            classifier_columns = ", ".join(sorted(CLASSIFIER_RESULT_COLUMNS))
+            raise ValueError(
+                f"{path}: CSV is not recognized by profile {self.name!r}; expected "
+                f"annotation-ready columns ({annotation_columns}) or classifier-results "
+                f"columns ({classifier_columns})"
+            )
         normalized: list[dict[str, str]] = []
         for index, source in enumerate(table.rows, start=1):
             row = dict(source)

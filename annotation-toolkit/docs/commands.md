@@ -8,12 +8,13 @@ uv run python run.py \
 
 查询
 ```
-uv run python run.py --mode review --dry-run
+uv run python run.py --profile cozie-safety --mode review --dry-run
 ```
 
 创建
 ```
 uv run python run.py \
+  --profile cozie-safety \
   --mode review \
   --offset 20 \
   --limit 10 \
@@ -26,6 +27,7 @@ uv run python run.py \
 细节创建
 ```
 uv run python run.py \
+  --profile cozie-safety \
   --mode review \
   --offset 20 \
   --limit 10 \
@@ -38,13 +40,13 @@ uv run python run.py \
 查看数据进度
 ```
 uv run python run.py \
-  --progress-dataset product-safety-review-v2-2p-full340
+  --progress-dataset medical-safety-review-test
 ```
 
 导出
 ```
 uv run python run.py \
-  --export-dataset product-safety-review-smoke-1p-limit20
+  --export-dataset medical-safety-review-test
 ```
 
 创建用户
