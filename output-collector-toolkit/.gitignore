@@ -1,0 +1,8 @@
+backend/data/*
+!backend/data/.gitkeep
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite*
+workbench/

@@ -16,7 +16,7 @@
 
 目录：[output-collector-toolkit](./output-collector-toolkit/README.md)
 
-用浏览器打开 [index.html](./output-collector-toolkit/index.html)，分批粘贴Langfuse生成的问题画像与医生审核材料，按case_id合并并导出CSV。支持本机暂存和JSON备份，无需安装依赖。
+通过 Docker 部署为内部工作台，提供邮箱自助注册与登录、独立个人工作空间和服务器自动保存。分批粘贴 Langfuse 生成的问题画像与医生审核材料，按 case_id 合并并导出 CSV；支持 JSON 备份迁移。也可双击 [index.html](./output-collector-toolkit/index.html) 使用离线模式。部署说明见工具目录 README。
 
 ### Prompt Agent
 

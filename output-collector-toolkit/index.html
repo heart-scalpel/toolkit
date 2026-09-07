@@ -3,18 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'self'">
 <title>Langfuse · Output 收集器</title>
 <style>
 :root{color-scheme:light;--ink:#172b29;--muted:#657773;--line:#dce5df;--green:#17644e;--paper:#f4f6f1;--amber:#926022}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}main{max-width:1260px;padding:36px 30px 55px;margin:auto}header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:24px}.eyebrow{font-size:11px;letter-spacing:2px;color:var(--green);font-weight:700}h1{font-size:30px;letter-spacing:-1px;margin:6px 0}p{margin:5px 0;color:var(--muted)}.local{border:1px solid var(--line);border-radius:30px;background:#fff;padding:7px 13px;white-space:nowrap;font-size:12px}.dot{color:var(--green);margin-right:5px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card,.collection{background:white;border:1px solid var(--line);border-radius:14px;padding:22px}.step{display:inline-grid;place-items:center;border-radius:7px;background:#e8f1eb;color:var(--green);width:27px;height:27px;margin-right:9px;font-size:13px}h2{font-size:18px;margin:0 0 5px;font-weight:650}.hint{font-size:12px;color:var(--muted)}label{display:block;font-size:12px;font-weight:600;margin:15px 0 6px}input[type=text],textarea{font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);border:1px solid #cedbd2;border-radius:8px;background:#fcfdfb;padding:10px 12px}input[type=text]{width:150px}textarea{display:block;width:100%;height:196px;resize:vertical}input:focus,textarea:focus{outline:2px solid #75ad98;outline-offset:1px}.prefix-row{display:flex;align-items:center;gap:12px;margin-bottom:11px}.prefix-row label{margin:0;white-space:nowrap}.card .description{min-height:44px}.review-spacer{min-height:43px;margin-bottom:11px;display:flex;align-items:center}.check{display:flex;align-items:center;gap:7px;font-weight:400;margin:0}button,.file-label{font:inherit;font-size:13px;cursor:pointer;border:1px solid #ccd8d0;background:#fff;border-radius:8px;padding:8px 13px;color:var(--ink);display:inline-flex;gap:6px;align-items:center;justify-content:center}button:hover,.file-label:hover{background:#edf3ee}button:focus-visible,.file-label:focus-within{outline:2px solid #75ad98;outline-offset:2px}button:disabled{opacity:.42;cursor:not-allowed}.primary{background:var(--green);border-color:var(--green);color:#fff}.primary:hover{background:#104c3a}.card button.primary{margin-top:13px}.message{font-size:13px;padding:11px 14px;border-radius:9px;border:1px solid var(--line);margin:16px 0;background:#eef4ef;white-space:pre-wrap;overflow-wrap:anywhere}.message.error{background:#fff1ed;color:#993e31;border-color:#eac6bc}.message:empty{display:none}.collection{margin-top:20px;padding:0;overflow:hidden}.collection-head{padding:22px;display:flex;align-items:center;justify-content:space-between;gap:15px}.stats{display:flex;gap:22px;flex-wrap:wrap}.stat{font-size:12px;color:var(--muted)}.stat b{font-size:23px;color:var(--ink);font-weight:650;margin-right:5px}.stat.attention b{color:var(--amber)}.exports{display:flex;flex-wrap:wrap;gap:8px}.table-wrap{overflow:auto;max-height:480px}table{border-collapse:collapse;width:100%;min-width:690px;text-align:left}th{position:sticky;top:0;background:#f5f8f4;font-size:12px;color:var(--muted);font-weight:500}th,td{padding:13px 20px;border-top:1px solid #e7ece7}td{font-size:13px;vertical-align:top}.id{font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.question{max-width:510px;overflow-wrap:anywhere}.badge{font-size:11px;padding:3px 8px;border-radius:20px;background:#eaf3ed;color:var(--green);white-space:nowrap}.badge.pending{color:var(--amber);background:#faf1e3}.actions{display:flex;gap:5px;white-space:nowrap}.actions button{font-size:11px;padding:5px 8px}.delete{color:#91615b}.empty{padding:44px 20px;text-align:center;color:var(--muted)}.footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 22px;border-top:1px solid var(--line);background:#fcfdfb}.footer .tools{display:flex;gap:8px;flex-shrink:0}.file-label{margin:0;font-weight:400}.file-label input{position:absolute;width:1px;height:1px;opacity:0}.footnote{margin-top:14px;font-size:12px}.saved{font-size:12px;color:var(--green)}dialog{border:1px solid var(--line);border-radius:14px;padding:24px;width:min(840px,92vw);max-height:85vh}dialog::backdrop{background:#142c2955}dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7;background:#f5f8f4;padding:16px;border-radius:8px}dialog .top{display:flex;justify-content:space-between;align-items:center}.small-danger{font-size:12px;color:#91615b;border:0;background:transparent}
 @media(max-width:800px){main{padding:22px 14px}.cards{grid-template-columns:1fr}header,.collection-head{flex-direction:column}.review-spacer{min-height:45px}.footer{align-items:flex-start;flex-direction:column}h1{font-size:26px}.card{padding:18px}.card .description{min-height:0}.stats{gap:15px}}
 .batch-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:18px;padding:18px 22px;border:1px solid #b9d3c3;background:#eaf3ed;border-radius:12px}.batch-bar h2{font-size:16px}.batch-controls{display:flex;align-items:center;gap:10px;flex-shrink:0}.batch-controls label{margin:0;white-space:nowrap}.batch-controls select{max-width:200px;border:1px solid #bdd0c3;background:#fff;border-radius:8px;padding:9px;font:inherit;font-size:13px}.batch-controls button{white-space:nowrap}@media(max-width:1100px){.batch-bar{align-items:flex-start;flex-direction:column}.batch-controls{flex-wrap:wrap}}@media(max-width:600px){.batch-bar{padding:17px}.batch-controls{width:100%}.batch-controls select{flex:1;min-width:0}.batch-controls button{width:100%}}
+[hidden]{display:none!important}.auth-screen{max-width:430px;margin:9vh auto;padding:30px;background:#fff;border:1px solid var(--line);border-radius:16px}.auth-screen h1{font-size:27px}.account-form input{display:block;width:100%;font:inherit;padding:10px 12px;border:1px solid #cedbd2;border-radius:8px;background:#fcfdfb}.account-form button[type=submit]{margin-top:18px}.account-bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center}.account-bar .local{white-space:normal}.server-tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.admin-list{margin-top:24px}.user-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 0;border-top:1px solid var(--line)}.user-row .actions{flex-wrap:wrap}.account-form .hint{margin-top:8px}.account-dialog{max-width:480px}.account-dialog.wide{max-width:740px}.auth-screen button{width:100%}.account-bar button{font-size:12px}.recovery{color:var(--amber)}
+.auth-switch{display:flex;gap:8px;margin:20px 0 12px}.auth-switch button[aria-pressed=true]{background:var(--green);color:#fff;border-color:var(--green)}
 </style>
 </head>
 <body>
-<main>
-<header><div><div class="eyebrow">LANGFUSE / CASE WORKBENCH</div><h1>把两份 Output 接在一起</h1><p>整批问题 → 整批问诊材料 → 标注 CSV。编号自动带上，一次复制即可。</p></div><div class="local"><span class="dot">●</span>本机使用 · 无需联网</div></header>
+<section id="auth-screen" class="auth-screen" aria-label="登录">
+<div class="eyebrow">OUTPUT COLLECTOR / TEAM</div><h1>进入你的工作空间</h1><p>收集、整理、保存。每个人有自己的批次与材料。</p>
+<div id="auth-switch" class="auth-switch" role="group" aria-label="登录或注册" hidden><button id="show-login" type="button" aria-pressed="true">登录</button><button id="show-register" type="button" aria-pressed="false">注册</button></div>
+<div id="auth-message" class="message" role="status">正在连接服务器…</div>
+<form method="post" id="login-form" class="account-form" hidden><label for="login-username">邮箱</label><input id="login-username" name="email" type="text" inputmode="email" autocomplete="username" required minlength="3" maxlength="254" spellcheck="false" placeholder="you@example.com"><label for="login-password">密码</label><input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="128"><button type="submit" class="primary">登录</button><p class="hint">没有账号？切换到「注册」，用自己的邮箱和密码创建。</p></form>
+<form method="post" id="register-form" class="account-form" hidden><label for="register-email">邮箱</label><input id="register-email" name="email" type="email" autocomplete="username" required maxlength="254" spellcheck="false" placeholder="you@example.com"><label for="register-password">密码</label><input id="register-password" name="password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"><p class="hint">密码 12–128 个字符。邮箱仅用作账号，无需验证码或邮件验证。</p><button type="submit" class="primary">注册并进入</button></form>
+</section>
+<main id="workbench" hidden>
+<header><div><div class="eyebrow">LANGFUSE / CASE WORKBENCH</div><h1>把两份 Output 接在一起</h1><p>整批问题 → 整批问诊材料 → 标注 CSV。编号自动带上，一次复制即可。</p></div><div class="account-bar"><div id="account-label" class="local"><span class="dot">●</span>本机使用 · 无需联网</div><button id="manage-users" hidden>成员管理</button><button id="change-password" hidden>修改密码</button><button id="logout" hidden>退出登录</button></div></header>
+<div id="server-tools" class="server-tools" hidden><button id="reload-server">加载服务器最新内容</button><button id="download-pending" class="recovery" hidden>下载未确认保存的副本</button><span class="hint">内容保存到你的账号，同编号可由不同成员分别使用。</span></div>
 <section class="cards">
 <article class="card"><h2><span class="step">01</span>问题与画像</h2><p class="hint description">粘贴 medical/user-question-generator 的 Output。支持一批 questions，也支持连续粘贴多段完整 JSON。</p>
 <div class="prefix-row"><label for="prefix">编号前缀</label><input id="prefix" type="text" value="S01" maxlength="60" spellcheck="false"><span class="hint">生成 S01-Q001；新批次可用 S01-B02</span></div>
@@ -27,11 +37,14 @@
 <div id="message" class="message" role="status" aria-live="polite"></div>
 <section class="collection"><div class="collection-head"><div class="stats"><div class="stat"><b id="count-questions">0</b>条问题</div><div class="stat"><b id="count-ready">0</b>已配齐</div><div class="stat attention"><b id="count-missing">0</b>待补材料</div><div class="stat attention"><b id="count-orphans">0</b>待关联</div></div><div class="exports"><button id="export-backup">下载 JSON 备份</button><button class="primary" id="export-csv">下载 CSV</button></div></div>
 <div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>用户问题</th><th>收集状态</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
-<div class="footer"><div><div id="save-status" class="saved">已接收的内容保存在当前浏览器</div><div class="hint">建议每次结束前下载 JSON 备份；换浏览器或电脑后可恢复。</div></div><div class="tools"><label class="file-label">恢复备份<input id="restore-backup" type="file" accept=".json,application/json" aria-label="恢复 JSON 备份"></label><button class="small-danger" id="clear-all">清空收集</button></div></div></section>
+<div class="footer"><div><div id="save-status" class="saved">已接收的内容保存在当前浏览器</div><div id="storage-hint" class="hint">建议每次结束前下载 JSON 备份；换浏览器或电脑后可恢复。</div></div><div class="tools"><label class="file-label">恢复备份<input id="restore-backup" type="file" accept=".json,application/json" aria-label="恢复 JSON 备份"></label><button class="small-danger" id="clear-all">清空收集</button></div></div></section>
 <p class="footnote">「复制整批问诊输入」会带上所选问题的编号、输入和完整画像。第二个提示词需使用批量版 System、User 与输出 Schema；变量名仍为 case_input。CSV 保留问题、完整画像和候选材料，医生确认栏留空。尚未配齐的行会标记 missing_review。</p>
-<p class="hint">CSV 对公式开头的字段加文本前缀，JSON 备份与复制内容保留原文。此工具不调用模型，也不上传数据。</p>
+<p id="privacy-hint" class="hint">CSV 对公式开头的字段加文本前缀，JSON 备份与复制内容保留原文。离线模式不调用模型，也不上传数据。</p>
 </main>
 <dialog id="detail"><div class="top"><h2 id="detail-title">查看材料</h2><button id="close-detail">关闭</button></div><p id="detail-hint" class="hint"></p><pre id="detail-content"></pre></dialog>
+<dialog id="password-dialog" class="account-dialog"><div class="top"><h2>修改密码</h2><button type="button" data-close="password-dialog">关闭</button></div><form method="post" id="password-form" class="account-form"><label for="current-password">当前密码</label><input id="current-password" type="password" autocomplete="current-password" required maxlength="128"><label for="new-password">新密码</label><input id="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"><p class="hint">12–128 个字符，修改后其他设备需要重新登录。</p><div id="password-message" class="message" role="status"></div><button type="submit" class="primary">保存新密码</button></form></dialog>
+<dialog id="users-dialog" class="account-dialog wide"><div class="top"><h2>成员管理</h2><button type="button" data-close="users-dialog">关闭</button></div><p>为内部成员开通账号，每个人独立收集和保存。</p><form method="post" id="create-user-form" class="account-form"><label for="new-username">账号</label><input id="new-username" type="text" autocomplete="off" required minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_.-]*" placeholder="如 zhangsan"><label for="new-display-name">成员姓名</label><input id="new-display-name" type="text" autocomplete="off" required maxlength="80"><label for="member-password">初始密码</label><input id="member-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"><p class="hint">密码 12–128 个字符，成员登录后可以自行修改。</p><button type="submit" class="primary">创建成员账号</button></form><div id="users-message" class="message" role="status"></div><div id="users-list" class="admin-list"></div></dialog>
+<dialog id="reset-dialog" class="account-dialog"><div class="top"><h2 id="reset-title">重置成员密码</h2><button type="button" data-close="reset-dialog">关闭</button></div><form method="post" id="reset-form" class="account-form"><label for="reset-password">新密码</label><input id="reset-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128"><p class="hint">重置后，该成员在所有设备上的登录都会失效。</p><div id="reset-message" class="message" role="status"></div><button type="submit" class="primary">重置密码</button></form></dialog>
 <script id="question-schema" type="application/json">{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "QuestionOutput v2.0.0", "type": "object", "properties": {"questions": {"type": "array", "items": {"type": "object", "properties": {"local_id": {"type": "string", "pattern": "^Q[0-9]{3,}$"}, "user_input": {"type": "string", "minLength": 1}, "user_profile": {"type": "object", "properties": {"stage": {"type": ["string", "null"], "minLength": 1}, "locale": {"type": "string", "minLength": 1}, "baby_age_days": {"type": ["integer", "null"], "minimum": 0}, "background": {"type": "array", "items": {"type": "string", "minLength": 1}, "maxItems": 8, "uniqueItems": true}}, "required": ["stage", "locale", "baby_age_days", "background"], "additionalProperties": false}, "source_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}, "pair_key": {"type": ["string", "null"], "minLength": 1}, "changed_factor": {"type": ["string", "null"], "minLength": 1}}, "required": ["local_id", "user_input", "user_profile", "source_ids", "pair_key", "changed_factor"], "additionalProperties": false}, "minItems": 1}}, "required": ["questions"], "additionalProperties": false}</script>
 <script id="review-schema" type="application/json">{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "ReviewOutput v4.0.0", "type": "object", "properties": {"reviews": {"type": "array", "minItems": 1, "items": {"type": "object", "properties": {"case_id": {"type": "string", "minLength": 1}, "safety": {"type": "object", "properties": {"candidate_class": {"enum": ["non_health", "general_health", "personalized_health", "general_medical", "restricted_medical", null]}, "boundary_note": {"type": "string"}}, "required": ["candidate_class", "boundary_note"], "additionalProperties": false}, "initial_assessment": {"type": "string", "minLength": 1}, "possible_consultation_response": {"type": "string", "minLength": 1}, "follow_ups": {"type": "array", "maxItems": 2, "items": {"type": "object", "properties": {"question": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1}}, "required": ["question", "purpose"], "additionalProperties": false}}}, "required": ["case_id", "safety", "initial_assessment", "possible_consultation_response", "follow_ups"], "additionalProperties": false}}}, "required": ["reviews"], "additionalProperties": false}</script>
 <script id="collector-core">
@@ -196,12 +209,82 @@ const Collector = (() => {
   const $ = id => document.getElementById(id);
   const questionSchema = JSON.parse($('question-schema').textContent), reviewSchema = JSON.parse($('review-schema').textContent);
   const storageKey = 'langfuse-output-collector-v1'; let state = Collector.empty(); let volatile = false; let batchScope = null;
+  const serverMode = location.protocol !== 'file:';
+  let account = null, loadedAccountId = null, csrf = '', revision = 0, busy = false, blocked = false, pendingState = null, resetUserId = null, authBusy = false;
+  function panelMessage(id, message, error = false) { $(id).textContent = message; $(id).classList.toggle('error', error); }
+  function clearInputs() { $('questions-input').value = ''; $('reviews-input').value = ''; $('prefix').value = 'S01'; $('replace-reviews').checked = false; }
+  function showAuthMode(mode) {
+    $('auth-switch').hidden = false; $('login-form').hidden = mode !== 'login'; $('register-form').hidden = mode !== 'register';
+    $('show-login').setAttribute('aria-pressed', String(mode === 'login')); $('show-register').setAttribute('aria-pressed', String(mode === 'register'));
+    panelMessage('auth-message', '');
+  }
+  function lockSession(message) {
+    account = null; csrf = ''; $('workbench').hidden = true; $('auth-screen').hidden = false; showAuthMode('login');
+    for (const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
+    panelMessage('auth-message', message, true);
+  }
+  async function api(path, method = 'GET', body) {
+    let response;
+    try {
+      response = await fetch('/api' + path, { method, credentials: 'same-origin', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'X-Collector-Request': '1', ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    } catch { throw Error('连接服务器失败，请检查网络后重试。输入仍保留在页面中。'); }
+    const data = await response.json().catch(() => ({ detail: '服务器返回了无法识别的响应' }));
+    if (!response.ok) {
+      if ((response.status === 401 || response.status === 403) && !['/auth/login', '/auth/register'].includes(path)) lockSession('登录状态已失效或变化，请重新登录。同账号的未提交输入仍保留在此页面。');
+      const error = Error(typeof data.detail === 'string' ? data.detail : '请求失败'); error.status = response.status; throw error;
+    }
+    return data;
+  }
+  function setBusy(value) {
+    busy = value;
+    for (const el of document.querySelectorAll('#workbench button, #workbench input, #workbench textarea, #workbench select')) el.disabled = value;
+    if (!value) render();
+  }
+  async function loadWorkspace() {
+    const snapshot = await api('/workspace');
+    if (!account || snapshot.account_id !== account.id) { lockSession('其他窗口已切换账号，请重新登录。'); throw Error('当前账号已变化'); }
+    const next = Collector.verifyBackup(snapshot.state, questionSchema, reviewSchema);
+    if (loadedAccountId !== account.id) { clearInputs(); pendingState = null; batchScope = null; $('detail-content').textContent = ''; notify(''); }
+    loadedAccountId = account.id; revision = snapshot.revision; state = next; blocked = false;
+    $('account-label').textContent = account.email || (account.display_name + ' · ' + account.username);
+    $('manage-users').hidden = !account.is_admin;
+    $('change-password').hidden = $('logout').hidden = $('server-tools').hidden = false;
+    $('storage-hint').textContent = '已保存的内容跟随账号；JSON 备份可用于迁移或保留副本。';
+    $('privacy-hint').textContent = '内容保存到本工具所在服务器。此工具不调用模型。CSV 对公式开头的字段加文本前缀，JSON 备份与复制内容保留原文。';
+    $('save-status').textContent = '已加载个人工作空间 · 版本 ' + revision;
+    $('auth-screen').hidden = true; $('workbench').hidden = false;
+    render();
+  }
+  async function enterWorkspace(auth) { account = auth.user; csrf = auth.csrf_token; await loadWorkspace(); }
+  async function formAction(form, messageId, action) {
+    const submit = form.querySelector('[type=submit]'); if (submit.disabled) return;
+    submit.disabled = true; panelMessage(messageId, '');
+    try { await action(); } catch (e) { panelMessage(messageId, e.message, true); }
+    finally { submit.disabled = false; }
+  }
   function notify(message, error = false) { $('message').textContent = message; $('message').classList.toggle('error', error); }
   function save() {
     try { localStorage.setItem(storageKey, JSON.stringify(state)); volatile = false; $('save-status').textContent = '已自动保存到当前浏览器 · ' + new Date().toLocaleTimeString(); }
     catch { volatile = true; $('save-status').textContent = '浏览器暂存不可用：请下载 JSON 备份，关闭页面前保存'; }
   }
-  function commit(next) { state = next; save(); render(); }
+  async function commit(next) {
+    if (busy) throw Error('正在保存，请稍候');
+    if (!serverMode) { state = next; save(); render(); return; }
+    if (blocked) throw Error('请先加载服务器最新内容，再提交修改；未确认保存的副本可先下载。');
+    if (!account) throw Error('请先登录');
+    setBusy(true); $('save-status').textContent = '正在保存到服务器…';
+    try {
+      const saved = await api('/workspace', 'PUT', { account_id: account.id, revision, state: next });
+      revision = saved.revision; state = next; pendingState = null;
+      $('save-status').textContent = '已保存到服务器 · ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      pendingState = next; blocked = true;
+      $('save-status').textContent = '本次保存未确认成功，请先下载副本或加载服务器最新内容';
+      throw e;
+    } finally { setBusy(false); }
+  }
   function button(text, action, cls = '') { const b = document.createElement('button'); b.textContent = text; b.className = cls; b.addEventListener('click', action); return b; }
   function detail(title, data, hint = '') { $('detail-title').textContent = title; $('detail-hint').textContent = hint; $('detail-content').textContent = JSON.stringify(data, null, 2); $('detail').showModal(); }
   async function copyInput(entry) {
@@ -238,12 +321,14 @@ const Collector = (() => {
       }
     } catch (e) { notify(e.message, true); }
   });
-  function remove(id) {
-    if (!confirm(`删除 ${id} 的问题和问诊材料？此操作会更新浏览器中的收集记录。`)) return;
-    commit({ ...state, questions: state.questions.filter(x => x.case_id !== id), reviews: state.reviews.filter(x => x.case_id !== id) }); notify(`已删除 ${id}`);
+  async function remove(id) {
+    if (!confirm(`删除 ${id} 的问题和问诊材料？此操作会更新当前工作空间的收集记录。`)) return;
+    try { await commit({ ...state, questions: state.questions.filter(x => x.case_id !== id), reviews: state.reviews.filter(x => x.case_id !== id) }); notify(`已删除 ${id}`); } catch (e) { notify(e.message, true); }
   }
   function render() {
     renderBatch();
+    $('download-pending').hidden = !pendingState;
+    for (const id of ['add-questions', 'add-reviews', 'restore-backup', 'clear-all']) $(id).disabled = busy || blocked;
     const counts = Collector.stats(state);
     for (const k of ['questions','ready','missing','orphans']) $('count-' + k).textContent = counts[k];
     $('export-csv').disabled = !counts.questions;
@@ -261,15 +346,15 @@ const Collector = (() => {
       td = tr.insertCell(); const actions = document.createElement('div'); actions.className = 'actions';
       const copy = button('复制单条', () => copyInput(q)); copy.disabled = !q; actions.append(copy);
       actions.append(button('查看', () => detail(id, { ...(q ? { ...Collector.caseInput(q), source_ids: q.question.source_ids, pair_key: q.question.pair_key, changed_factor: q.question.changed_factor } : {}), review: r || null })));
-      actions.append(button('删除', () => remove(id), 'delete')); td.append(actions);
+      const removeButton = button('删除', () => remove(id), 'delete'); removeButton.disabled = busy || blocked; actions.append(removeButton); td.append(actions);
     }
   }
-  $('add-questions').addEventListener('click', () => {
-    try { const result = Collector.addQuestions(state, Collector.extract($('questions-input').value, 'questions'), $('prefix').value.trim(), questionSchema); batchScope = $('prefix').value.trim(); commit(result.state); $('questions-input').value = ''; notify(`收下 ${result.added} 条问题，跳过 ${result.skipped} 条重复记录。请点下方「复制整批问诊输入」继续第二步。`); }
+  $('add-questions').addEventListener('click', async () => {
+    try { const result = Collector.addQuestions(state, Collector.extract($('questions-input').value, 'questions'), $('prefix').value.trim(), questionSchema); batchScope = $('prefix').value.trim(); await commit(result.state); $('questions-input').value = ''; notify(`收下 ${result.added} 条问题，跳过 ${result.skipped} 条重复记录。请点下方「复制整批问诊输入」继续第二步。`); }
     catch (e) { notify(e.message, true); }
   });
-  $('add-reviews').addEventListener('click', () => {
-    try { const result = Collector.addReviews(state, Collector.extract($('reviews-input').value, 'reviews'), $('replace-reviews').checked, reviewSchema); commit(result.state); $('reviews-input').value = ''; $('replace-reviews').checked = false; const orphan = Collector.stats(state).orphans; notify(`收下 ${result.added} 条问诊材料，跳过 ${result.skipped} 条重复记录，替换 ${result.replaced} 条。${orphan ? `还有 ${orphan} 条待关联问题，已暂存，请核对 case_id。` : ''}`); }
+  $('add-reviews').addEventListener('click', async () => {
+    try { const result = Collector.addReviews(state, Collector.extract($('reviews-input').value, 'reviews'), $('replace-reviews').checked, reviewSchema); await commit(result.state); $('reviews-input').value = ''; $('replace-reviews').checked = false; const orphan = Collector.stats(state).orphans; notify(`收下 ${result.added} 条问诊材料，跳过 ${result.skipped} 条重复记录，替换 ${result.replaced} 条。${orphan ? `还有 ${orphan} 条待关联问题，已暂存，请核对 case_id。` : ''}`); }
     catch (e) { notify(e.message, true); }
   });
   const stamp = () => new Date().toISOString().replace(/[:.]/g, '-');
@@ -281,16 +366,110 @@ const Collector = (() => {
   $('export-backup').addEventListener('click', () => download(JSON.stringify(state, null, 2), 'application/json;charset=utf-8', `cases-backup-${stamp()}.json`));
   $('restore-backup').addEventListener('change', async event => {
     const file = event.target.files[0]; if (!file) return;
-    try { const next = Collector.verifyBackup(JSON.parse((await file.text()).replace(/^\uFEFF/, '')), questionSchema, reviewSchema); if ((state.questions.length || state.reviews.length) && !confirm(`用备份中的 ${next.questions.length} 条问题和 ${next.reviews.length} 条问诊材料替换当前收集？需要保留当前内容时，请先取消并下载备份。`)) return; commit(next); notify('已恢复 JSON 备份。'); }
+    try { const next = Collector.verifyBackup(JSON.parse((await file.text()).replace(/^\uFEFF/, '')), questionSchema, reviewSchema); if ((state.questions.length || state.reviews.length) && !confirm(`用备份中的 ${next.questions.length} 条问题和 ${next.reviews.length} 条问诊材料替换当前收集？需要保留当前内容时，请先取消并下载备份。`)) return; await commit(next); notify('已恢复 JSON 备份。'); }
     catch (e) { notify('恢复失败，当前内容未改变：' + e.message, true); }
     finally { event.target.value = ''; }
   });
-  $('clear-all').addEventListener('click', () => { if (confirm('清空当前浏览器中已收集的问题和问诊材料？请先下载 JSON 备份。')) { commit(Collector.empty()); notify('已清空收集。'); } });
+  $('clear-all').addEventListener('click', async () => { if (confirm('清空当前工作空间中已收集的问题和问诊材料？请先下载 JSON 备份。')) { try { await commit(Collector.empty()); notify('已清空收集。'); } catch (e) { notify(e.message, true); } } });
   $('close-detail').addEventListener('click', () => $('detail').close());
-  window.addEventListener('beforeunload', e => { if (volatile && (state.questions.length || state.reviews.length)) { e.preventDefault(); e.returnValue = ''; } });
-  try { const saved = localStorage.getItem(storageKey); if (saved) { state = Collector.verifyBackup(JSON.parse(saved), questionSchema, reviewSchema); $('save-status').textContent = '已恢复上次收集的内容'; } }
-  catch (e) { notify('未能恢复浏览器暂存，请使用 JSON 备份恢复：' + e.message, true); $('save-status').textContent = '未能读取浏览器暂存'; }
-  render();
+  $('download-pending').addEventListener('click', () => { if (pendingState) download(JSON.stringify(pendingState, null, 2), 'application/json;charset=utf-8', `cases-unsaved-${stamp()}.json`); });
+  $('reload-server').addEventListener('click', async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await loadWorkspace(); notify('已加载服务器最新内容。输入框中的内容仍保留，可核对后重新接收。'); }
+    catch (e) { notify(e.message, true); }
+    finally { setBusy(false); }
+  });
+  $('show-login').addEventListener('click', () => { if (!authBusy) { showAuthMode('login'); $('register-password').value = ''; } });
+  $('show-register').addEventListener('click', () => { if (!authBusy) { showAuthMode('register'); $('login-password').value = ''; } });
+  async function submitAuth(form, route, body) {
+    if (authBusy) return;
+    authBusy = true; $('show-login').disabled = $('show-register').disabled = true;
+    try {
+      await formAction(form, 'auth-message', async () => {
+        const auth = await api(route, 'POST', body);
+        $('login-password').value = $('register-password').value = '';
+        await enterWorkspace(auth);
+      });
+    } finally { authBusy = false; $('show-login').disabled = $('show-register').disabled = false; }
+  }
+  $('login-form').addEventListener('submit', event => {
+    event.preventDefault(); submitAuth(event.currentTarget, '/auth/login', { email: $('login-username').value.trim(), password: $('login-password').value });
+  });
+  $('register-form').addEventListener('submit', event => {
+    event.preventDefault(); submitAuth(event.currentTarget, '/auth/register', { email: $('register-email').value.trim(), password: $('register-password').value });
+  });
+  $('logout').addEventListener('click', async () => {
+    if (($('questions-input').value || $('reviews-input').value || pendingState) && !confirm('有尚未提交或未确认保存的内容。退出会清除页面中的输入，确定退出？')) return;
+    setBusy(true);
+    try {
+      await api('/auth/logout', 'POST', {}); clearInputs(); state = Collector.empty(); pendingState = null; loadedAccountId = null; blocked = false;
+      $('detail-content').textContent = ''; lockSession('已退出登录'); panelMessage('auth-message', '已退出登录');
+    } catch (e) { notify(e.message, true); }
+    finally { setBusy(false); }
+  });
+  document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => $(el.dataset.close).close()));
+  $('change-password').addEventListener('click', () => { $('password-form').reset(); panelMessage('password-message', ''); $('password-dialog').showModal(); });
+  $('password-form').addEventListener('submit', event => {
+    event.preventDefault(); formAction(event.currentTarget, 'password-message', async () => {
+      const auth = await api('/auth/password', 'POST', { current_password: $('current-password').value, new_password: $('new-password').value });
+      account = auth.user; csrf = auth.csrf_token; $('password-form').reset(); $('password-dialog').close(); notify('密码已修改，其他设备上的旧登录已失效。');
+    });
+  });
+  async function loadUsers() {
+    const users = await api('/admin/users'); $('users-list').replaceChildren();
+    for (const user of users) {
+      const row = document.createElement('div'); row.className = 'user-row';
+      const name = document.createElement('div'); name.textContent = `${user.email || (user.display_name + ' · ' + user.username)} · ${user.is_admin ? '管理员' : user.active ? '正常' : '已停用'}`; row.append(name);
+      if (!user.is_admin) {
+        const actions = document.createElement('div'); actions.className = 'actions';
+        const toggle = button(user.active ? '停用' : '启用', async () => {
+          if (user.active && !confirm(`停用 ${user.email || user.username}？该成员会退出登录，已有材料仍保留。`)) return;
+          toggle.disabled = true;
+          try { await api('/admin/users/' + user.id, 'PATCH', { active: !user.active }); await loadUsers(); panelMessage('users-message', '账号状态已更新。'); }
+          catch (e) { panelMessage('users-message', e.message, true); toggle.disabled = false; }
+        });
+        actions.append(toggle, button('重置密码', () => { resetUserId = user.id; $('reset-title').textContent = '重置 ' + (user.email || user.username) + ' 的密码'; $('reset-form').reset(); panelMessage('reset-message', ''); $('reset-dialog').showModal(); })); row.append(actions);
+      }
+      $('users-list').append(row);
+    }
+  }
+  $('manage-users').addEventListener('click', async () => {
+    $('create-user-form').reset(); panelMessage('users-message', ''); $('users-dialog').showModal();
+    try { await loadUsers(); } catch (e) { panelMessage('users-message', e.message, true); }
+  });
+  $('create-user-form').addEventListener('submit', event => {
+    event.preventDefault(); formAction(event.currentTarget, 'users-message', async () => {
+      await api('/admin/users', 'POST', { username: $('new-username').value.trim(), display_name: $('new-display-name').value.trim(), password: $('member-password').value });
+      $('create-user-form').reset(); await loadUsers(); panelMessage('users-message', '成员账号已创建。请将账号信息交给本人，首次登录后可修改密码。');
+    });
+  });
+  $('reset-form').addEventListener('submit', event => {
+    event.preventDefault(); formAction(event.currentTarget, 'reset-message', async () => {
+      await api('/admin/users/' + resetUserId, 'PATCH', { password: $('reset-password').value });
+      $('reset-form').reset(); $('reset-dialog').close(); panelMessage('users-message', '密码已重置，该成员需要重新登录。');
+    });
+  });
+  window.addEventListener('beforeunload', e => {
+    if ((volatile && (state.questions.length || state.reviews.length)) || busy || pendingState || $('questions-input').value || $('reviews-input').value) { e.preventDefault(); e.returnValue = ''; }
+  });
+  window.addEventListener('focus', async () => {
+    if (!serverMode || !account || busy) return;
+    try { const auth = await api('/auth/me'); if (account && (auth.user.id !== account.id || auth.csrf_token !== csrf)) lockSession('其他窗口已更新登录状态，请重新登录。'); } catch { /* api() shows expired sessions; transient network errors can be retried on save. */ }
+  });
+  window.addEventListener('pageshow', event => { if (serverMode && event.persisted) location.reload(); });
+  async function initialize() {
+    if (serverMode) {
+      try { await enterWorkspace(await api('/auth/me')); }
+      catch (e) { lockSession(e.status === 401 ? '请登录，或用自己的邮箱注册。' : e.message); }
+    } else {
+      $('auth-screen').hidden = true; $('workbench').hidden = false;
+      try { const saved = localStorage.getItem(storageKey); if (saved) { state = Collector.verifyBackup(JSON.parse(saved), questionSchema, reviewSchema); $('save-status').textContent = '已恢复上次收集的内容'; } }
+      catch (e) { notify('未能恢复浏览器暂存，请使用 JSON 备份恢复：' + e.message, true); $('save-status').textContent = '未能读取浏览器暂存'; }
+      render();
+    }
+  }
+  initialize();
 })();
 </script>
 </body>

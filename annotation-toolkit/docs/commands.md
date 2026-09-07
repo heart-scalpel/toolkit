@@ -16,9 +16,12 @@ uv run python run.py --profile cozie-safety --mode review --dry-run
 uv run python run.py \
   --profile cozie-medical-review \
   --mode review \
-  --min-submitted 1 \
+  --offset 1 \
+  --limit 18 \
+  --random \
+  --min-submitted 2 \
   --input workbench/output/cases-2026-09-07T01-19-57-173Z_engine.csv \
-  --dataset medical-case-review-100-20260907
+  --dataset medical-case-review-18-p2
 ```
 
 模板

@@ -1,0 +1,27 @@
+name: output-collector-dev
+
+services:
+  collector:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      target: dev
+      args:
+        UV_IMAGE: ${UV_IMAGE:-ghcr.io/astral-sh/uv:0.11.1}
+        UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+    init: true
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${PORT:-3722}:8000"
+    env_file: ../.env
+    environment:
+      COLLECTOR_ENVIRONMENT: development
+      COLLECTOR_COOKIE_SECURE: "false"
+      COLLECTOR_DATA_DIR: /app/backend/data
+    volumes:
+      - ../backend/app:/app/backend/app:ro
+      - ../backend/migrations:/app/backend/migrations:ro
+      - ../index.html:/app/index.html:ro
+      - collector-dev-data:/app/backend/data
+
+volumes:
+  collector-dev-data:
