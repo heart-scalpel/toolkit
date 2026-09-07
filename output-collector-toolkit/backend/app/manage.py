@@ -37,7 +37,7 @@ def main():
         backup_database(settings.database_path, args.destination)
         print("数据库备份已完成")
         return
-    password = validate_password(getpass.getpass("新密码（12–128 字符）: "))
+    password = validate_password(getpass.getpass("新密码（1–128 字符）: "))
     if password != getpass.getpass("再次输入: "):
         parser.error("两次密码不一致")
     engine = create_database_engine(settings)

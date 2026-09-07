@@ -16,7 +16,7 @@ from app.models import LoginSession, User, Workspace
 from app.security import COOKIE_NAME
 from app.validation import empty_workspace
 
-PASSWORD = "my-own-password-2026"
+PASSWORD = "root1234"
 HEADERS = {"X-Collector-Request": "1", "Origin": "http://testserver"}
 
 
@@ -143,11 +143,12 @@ def test_invalid_email_is_rejected_without_creating_an_account(client, email):
         assert db.scalar(select(User)) is None
 
 
-def test_registration_cannot_set_privileges_or_skip_password_rules(client):
+@pytest.mark.parametrize("password", ["", "secret" * 22])
+def test_registration_cannot_set_privileges_or_skip_password_rules(client, password):
     assert register(client, is_admin=True).status_code == 422
     assert register(client, active=True).status_code == 422
     response = client.post(
-        "/api/auth/register", headers=HEADERS, json={"email": "person@example.com", "password": "secret"}
+        "/api/auth/register", headers=HEADERS, json={"email": "person@example.com", "password": password}
     )
     assert response.status_code == 422 and "secret" not in response.text
     assert sign_in(client, "missing@example.com").status_code == 401

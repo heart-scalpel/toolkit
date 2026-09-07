@@ -18,7 +18,7 @@ from app.security import COOKIE_NAME, token_hash
 from app.validation import empty_workspace
 
 ADMIN_PASSWORD = "test-admin-password-2026"
-MEMBER_PASSWORD = "test-member-password-2026"
+MEMBER_PASSWORD = "root1234"
 WRITE_HEADERS = {"X-Collector-Request": "1", "Origin": "http://testserver"}
 
 
@@ -234,7 +234,8 @@ def test_member_cannot_manage_accounts_and_admin_cannot_be_disabled(client):
     )
 
 
-def test_duplicate_and_short_password_do_not_leak_password(client):
+@pytest.mark.parametrize("password", ["", "secret" * 22])
+def test_duplicate_and_invalid_password_do_not_leak_password(client, password):
     _, headers = login(client)
     create_member(client, headers)
     duplicate = client.post(
@@ -243,13 +244,13 @@ def test_duplicate_and_short_password_do_not_leak_password(client):
         json={"username": "ALICE", "display_name": "Other", "password": MEMBER_PASSWORD},
     )
     assert duplicate.status_code == 409
-    short = client.post(
+    invalid = client.post(
         "/api/admin/users",
         headers=headers,
-        json={"username": "short", "display_name": "Short", "password": "secret"},
+        json={"username": "invalid", "display_name": "Invalid", "password": password},
     )
-    assert short.status_code == 422
-    assert "secret" not in short.text
+    assert invalid.status_code == 422
+    assert "secret" not in invalid.text
 
 
 def test_disable_reenable_and_reset_revoke_sessions_preserve_data(client):

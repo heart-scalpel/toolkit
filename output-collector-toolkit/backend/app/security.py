@@ -26,8 +26,8 @@ def check_password(password, hashed):
 
 
 def validate_password(password):
-    if not 12 <= len(password) <= 128:
-        raise ValueError("密码长度需为 12–128 个字符")
+    if not 1 <= len(password) <= 128:
+        raise ValueError("密码长度需为 1–128 个字符")
     return password
 
 
