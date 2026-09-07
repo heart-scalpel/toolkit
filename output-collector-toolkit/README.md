@@ -2,7 +2,7 @@
 
 供内部成员整理 Langfuse Output 的工作台：登录后收集问题与画像、配对医生候选材料，导出 Argilla 标注所需的 CSV。每个账号有独立工作空间，内容自动保存到服务器，换电脑也能继续。
 
-沿用 cozy_agent 的 FastAPI、uv、SQLAlchemy / SQLite、Alembic 和 Docker Compose 组织方式。当前为单实例、单 worker，前端与 API 同源，由一个容器提供；数据库存到独立数据卷。账号独立于 Langfuse、Argilla。每个人用自己的邮箱和密码自行注册，注册后直接进入工作空间，只能读取、修改和导出自己的材料。无需管理员开通、验证码或邮件验证。
+沿用 cozy_agent 的 FastAPI、uv、SQLAlchemy / SQLite、Alembic 和 Docker Compose 组织方式。当前为单实例、单 worker，前端与 API 同源，由一个容器提供；数据库直接保存在宿主机的 `backend/data/collector.db`。账号独立于 Langfuse、Argilla。每个人用自己的邮箱和密码自行注册，注册后直接进入工作空间，只能读取、修改和导出自己的材料。无需管理员开通、验证码或邮件验证。
 
 ## Docker 部署到服务器
 
@@ -22,7 +22,7 @@ BIND_HOST=0.0.0.0
 PORT=3722
 ```
 
-这是内网服务器直接通过 IP 访问的配置，无需域名或反向代理。`COLLECTOR_PUBLIC_ORIGIN` 必须与浏览器地址一致，只含协议、IP / 域名和端口，不带路径。首次启动不需要设置管理员密码，服务启动后即可由成员各自注册。
+这是内网服务器直接通过 IP 访问的配置，无需域名或反向代理。`COLLECTOR_PUBLIC_ORIGIN` 必须与浏览器地址一致，只含协议、IP / 域名和端口，不带路径。首次启动不需要设置管理员密码，服务启动后即可由成员各自注册。旧版部署切换前先按下方「从旧数据卷迁移」复制已有数据库，再重建容器。
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose-prod.yaml up -d --build
@@ -50,9 +50,9 @@ location / {
 }
 ```
 
-使用 HTTPS 反向代理时，访问地址使用独立域名的根路径。若反向代理也在 Docker 中，`127.0.0.1` 指向代理容器自身：应将两个容器接入同一受控 Docker 网络，再代理到收集器的 `8000` 端口；或使用已有的宿主机网关接入方式。Compose 项目名为 `output-collector-prod`，数据卷为该项目的 `collector-data`，与其他服务分别管理。
+使用 HTTPS 反向代理时，访问地址使用独立域名的根路径。若反向代理也在 Docker 中，`127.0.0.1` 指向代理容器自身：应将两个容器接入同一受控 Docker 网络，再代理到收集器的 `8000` 端口；或使用已有的宿主机网关接入方式。Compose 项目名为 `output-collector-prod`，数据库挂载为 `../backend/data:/app/backend/data`，启动后可直接在本工具的 `backend/data/collector.db` 查看文件。Compose 已设置容器内的 `COLLECTOR_DATA_DIR`，无需在 `.env` 另填。
 
-容器以非 root 用户运行；启动时先迁移数据库，再提供注册和登录服务。健康检查访问 `/health`。首次构建需要下载 Python / uv 镜像和锁文件中的依赖；与 cozy_agent 一样默认使用清华 PyPI 源，可通过 `.env` 中的 `UV_INDEX_URL` 切换。
+与 cozy_agent 的镜像保持一致，容器使用默认 root 用户；启动脚本创建数据目录，应用启动时执行数据库迁移，再提供注册和登录服务。健康检查访问 `/health`。首次构建需要下载 Python / uv 镜像和锁文件中的依赖；与 cozy_agent 一样默认使用清华 PyPI 源，可通过 `.env` 中的 `UV_INDEX_URL` 切换。
 
 ## 内部账号与使用流程
 
@@ -83,7 +83,7 @@ CSV 内画像、来源及追问保存为 JSON 单元格；pair_key 加编号前�
 
 ## 数据备份、升级与恢复
 
-数据卷中的 `collector.db` 包含全部账号、会话和工作空间。个人 JSON 备份只包含该账号的材料，不含账号信息。数据卷可在容器重建后继续使用，但仍需将数据库备份另存到服务器之外。
+宿主机的 `backend/data/collector.db` 包含全部账号、会话和工作空间。个人 JSON 备份只包含该账号的材料，不含账号信息。数据库文件在容器重建或删除后仍会保留；仍需将数据库备份另存到服务器之外。
 
 使用 SQLite 在线备份命令，包含 WAL 中的已提交数据：
 
@@ -100,13 +100,26 @@ docker compose --env-file .env -f docker/docker-compose-prod.yaml cp collector:/
 docker compose --env-file .env -f docker/docker-compose-prod.yaml down
 ```
 
-不要在需要保留数据时追加 `-v`。恢复整库时先停止服务，将备份复制到数据卷里的 `collector.db`，移除旧库配套的 `collector.db-wal` 和 `collector.db-shm`（仅在停止后操作），确保文件归 UID / GID `10001:10001`，再启动服务。整库恢复会回退所有账号与材料，恢复后建议重新设置相关账号密码以撤销备份中的旧会话。
+恢复整库时先停止服务，将备份复制到宿主机的 `backend/data/collector.db`，移除同目录下旧库配套的 `collector.db-wal` 和 `collector.db-shm`（仅在停止后操作），再启动服务。整库恢复会回退所有账号与材料，恢复后建议重新设置相关账号密码以撤销备份中的旧会话。
 
 忘记密码时，由服务器维护者使用交互命令重置对应邮箱的密码；不通过邮件找回，密码不会出现在命令参数里：
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose-prod.yaml exec collector python -m app.manage reset-password person@example.com
 ```
+
+### 从旧数据卷迁移
+
+旧版生产数据在 `output-collector-prod_collector-data` 数据卷中，开发数据在 `output-collector-dev_collector-dev-data` 中。目录挂载不会自动读取旧卷。旧容器仍存在时，从工具目录执行以下命令，停服后复制整个数据目录，保留 SQLite 的 WAL 文件：
+
+```bash
+mkdir -p backend/data
+test ! -e backend/data/collector.db && \
+  docker compose --env-file .env -f docker/docker-compose-prod.yaml stop collector && \
+  docker compose --env-file .env -f docker/docker-compose-prod.yaml cp collector:/app/backend/data/. ./backend/data/
+```
+
+确认 `backend/data/collector.db` 已出现后，再运行 `up -d --build`。上述命令会在目标数据库已存在时停止，避免覆盖；旧数据卷不会自动删除。开发环境迁移时，将命令中的 Compose 文件替换为 `docker/docker-compose-dev.yaml`。如果开发和生产旧卷都有数据，先选定要迁入本地目录的那一份，分别备份其余数据。
 
 ## 本地开发与验证
 
@@ -124,7 +137,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 3722 --workers 1 --reload
 docker compose --env-file .env -f docker/docker-compose-dev.yaml up --build
 ```
 
-开发 Compose 使用独立数据卷和代码挂载，支持后端热重载；修改 HTML 后刷新页面。若使用 IP 或改变端口访问，应同步修改 `COLLECTOR_PUBLIC_ORIGIN`。
+开发 Compose 沿用 cozy_agent 的方式挂载整个 `backend` 目录，容器内的 `.venv` 和 uv 缓存使用独立卷。启动脚本执行 `uv sync --locked` 同步依赖，再启动热重载；修改 HTML 后刷新页面。开发、生产和本地直接运行都使用 `backend/data/collector.db`，切换环境时先停止当前服务。若使用 IP 或改变端口访问，应同步修改 `COLLECTOR_PUBLIC_ORIGIN`。
 
 验证：
 

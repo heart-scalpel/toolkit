@@ -18,18 +18,15 @@ FROM base AS dev
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked
 COPY backend/ ./
 COPY index.html /app/index.html
+COPY docker/dev-entrypoint.sh /usr/local/bin/dev-entrypoint.sh
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--reload"]
+CMD ["sh", "/usr/local/bin/dev-entrypoint.sh"]
 
 FROM base AS production
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 COPY backend/ ./
 COPY index.html /app/index.html
 COPY docker/prod-entrypoint.sh /usr/local/bin/prod-entrypoint.sh
-RUN groupadd --gid 10001 collector \
-    && useradd --uid 10001 --gid collector --no-create-home collector \
-    && mkdir -p /app/backend/data \
-    && chown collector:collector /app/backend/data
-USER collector
+RUN mkdir -p /app/backend/data
 EXPOSE 8000
 CMD ["sh", "/usr/local/bin/prod-entrypoint.sh"]
