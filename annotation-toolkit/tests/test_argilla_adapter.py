@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.cli import build_parser, run
+from app.cli import _write_export, build_parser, run
 from app.core import RecordSpec
 from app.platforms.argilla import (
     batch_usernames,
@@ -421,7 +421,18 @@ def test_user_deletion_only_resolves_exact_annotators() -> None:
         resolve_deletable_annotators(client, ["missing"])
 
 
-def test_submitted_response_export_is_one_row_per_annotator() -> None:
+@pytest.mark.parametrize(
+    "follow_ups",
+    [
+        '1. 问题：最想改善什么？\n   追问目的：明确需求, 保留"原文"。\n\n'  # noqa: RUF001 -- Preserve annotator punctuation.
+        "2. 问题：已尝试哪些安排？\n   追问目的：避免重复。",  # noqa: RUF001 -- Preserve annotator punctuation.
+        "无需追问",
+        "",
+    ],
+)
+def test_submitted_response_export_is_one_row_per_annotator(
+    tmp_path: Path, follow_ups: str
+) -> None:
     class Responses:
         def __init__(self) -> None:
             submitted = SimpleNamespace(
@@ -434,7 +445,16 @@ def test_submitted_response_export_is_one_row_per_annotator() -> None:
                 user_id="user-2",
                 status=SimpleNamespace(value="draft"),
             )
-            self.values = {"reason_codes": [submitted, draft]}
+            self.values = {
+                "reason_codes": [submitted, draft],
+                "confirmed_follow_ups": [
+                    SimpleNamespace(
+                        value=follow_ups,
+                        user_id="user-1",
+                        status=SimpleNamespace(value="submitted"),
+                    )
+                ],
+            }
 
         def to_dict(self) -> dict[str, list[object]]:
             return self.values
@@ -467,5 +487,50 @@ def test_submitted_response_export_is_one_row_per_annotator() -> None:
             "annotator_user_id": "user-1",
             "response_status": "submitted",
             "reason_codes": '["GENERAL_INFO"]',
+            "confirmed_follow_ups": follow_ups,
         }
     ]
+    output = tmp_path / "submitted.csv"
+    _write_export(output, columns, rows)
+    with output.open(encoding="utf-8-sig", newline="") as handle:
+        exported = list(csv.DictReader(handle))
+    assert exported == rows
+
+
+def test_import_uses_batch_guidelines_without_changing_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "cases.csv"
+    _write_csv(source)
+    guidelines = tmp_path / "guidelines.md"
+    guidelines.write_text(
+        "# Batch-specific review\nKeep both comparison cases.\n", encoding="utf-8"
+    )
+    profile_guidelines = PROFILE.task_spec("review").guidelines
+    captured = []
+
+    def capture_settings(task, min_submitted, client):
+        result = build_settings(task, min_submitted, client)
+        captured.append(result.guidelines)
+        return result
+
+    monkeypatch.setattr("app.cli.argilla.build_settings", capture_settings)
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--profile",
+            "cozie-safety",
+            "--input",
+            str(source),
+            "--guidelines",
+            str(guidelines),
+        ]
+    )
+    args.platform = "argilla"
+    assert run(args) == 0
+    assert captured == [guidelines.read_text(encoding="utf-8")]
+    assert PROFILE.task_spec("review").guidelines == profile_guidelines
+
+    guidelines.write_text(" \n", encoding="utf-8")
+    with pytest.raises(ValueError, match="guidelines cannot be empty"):
+        run(args)

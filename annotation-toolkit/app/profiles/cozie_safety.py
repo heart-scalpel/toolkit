@@ -139,7 +139,11 @@ def comparison_context(row: dict[str, str]) -> str:
     )
 
 
-def model_assessment(row: dict[str, str]) -> str:
+def model_assessment(
+    row: dict[str, str],
+    *,
+    instruction: str = "请根据医学专业判断独立勾选适用等级。",
+) -> str:
     """Render the classifier result and concise reason for annotators."""
     predicted = row.get("predicted_safety_class", "").strip()
     reasoning = row.get("model_reasoning", "").strip() or row.get("reasoning", "").strip()
@@ -155,7 +159,7 @@ def model_assessment(row: dict[str, str]) -> str:
     sections = [
         result,
         f"**引擎理由：** {reason}",
-        "> 以上为模型预判，仅供审核参考；请根据医学专业判断独立勾选适用等级。",
+        f"> 以上为模型预判，仅供审核参考；{instruction}",
     ]
     if error:
         sections.insert(2, "**运行状态：** 本条模型调用失败，请以人工判断为准。")

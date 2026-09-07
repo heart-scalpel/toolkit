@@ -5,6 +5,19 @@
 
 ## 工具列表
 
+### Langfuse 母婴用例提示词
+
+目录：[langfuse-toolkit](./langfuse-toolkit/README.md)
+
+两份可直接粘贴到 Langfuse 的 Chat Prompt，分别生成用户问题与画像，以及医生候选问诊材料。
+附输出 Schema 与 CSV 字段映射；产品在 Langfuse 编辑、试跑和保存版本，无需安装依赖。
+
+### Output 收集器工具包
+
+目录：[output-collector-toolkit](./output-collector-toolkit/README.md)
+
+用浏览器打开 [index.html](./output-collector-toolkit/index.html)，分批粘贴Langfuse生成的问题画像与医生审核材料，按case_id合并并导出CSV。支持本机暂存和JSON备份，无需安装依赖。
+
 ### Prompt Agent
 
 目录：[prompt-agent](./prompt-agent/README.md)
@@ -66,6 +79,14 @@ xlsx-to-csv/workbench/output/工作簿名/。
 
 ~~~text
 toolkit/
+├── output-collector-toolkit/
+│   ├── index.html
+│   └── README.md
+├── langfuse-toolkit/
+│   ├── prompts/
+│   ├── schemas/
+│   ├── docs/
+│   └── README.md
 ├── annotation-toolkit/
 │   ├── app/
 │   │   ├── platforms/

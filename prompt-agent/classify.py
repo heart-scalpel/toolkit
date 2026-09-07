@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
+import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -38,7 +41,13 @@ async def _run(args: argparse.Namespace) -> int:
     if not os.getenv("OPENAI_API_KEY"):
         raise ValueError(f"OPENAI_API_KEY is missing from environment or {args.env}")
 
-    from agents import Agent, Runner
+    from agents import Agent, Runner, set_tracing_disabled
+
+    set_tracing_disabled(True)
+    if args.output.resolve() == args.cases.resolve():
+        raise ValueError("output must differ from the source CSV")
+    if args.output.exists():
+        raise ValueError(f"refusing to overwrite existing results: {args.output}")
 
     prompt = args.prompt.read_text(encoding="utf-8")
     if not prompt.strip():
@@ -63,10 +72,30 @@ async def _run(args: argparse.Namespace) -> int:
     completed = [result for result in results if result.error is None]
     matched = sum(result.matched is True for result in completed)
     errors = len(results) - len(completed)
-    accuracy = matched / len(completed) if completed else 0
+    labeled = sum(result.matched is not None for result in completed)
+    accuracy = f"{matched / labeled:.2%}" if labeled else "n/a (no human reference labels)"
+    manifest = {
+        "completed_at": datetime.now(UTC).isoformat(),
+        "source_csv": str(args.cases.resolve()),
+        "source_sha256": hashlib.sha256(args.cases.read_bytes()).hexdigest(),
+        "prompt": str(args.prompt.resolve()),
+        "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+        "model": model,
+        "base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        "concurrency": args.concurrency,
+        "input_fields": ["query", "user_profile (when supplied)", "short_memory (when supplied)"],
+        "total": len(results),
+        "completed": len(completed),
+        "errors": errors,
+        "human_labeled": labeled,
+        "output_sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(),
+    }
+    args.output.with_suffix(".run.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     print(
         f"done: total={len(results)} completed={len(completed)} errors={errors} "
-        f"matched={matched} accuracy={accuracy:.2%} output={args.output}"
+        f"matched={matched} accuracy={accuracy} output={args.output}"
     )
     return 1 if errors else 0
 

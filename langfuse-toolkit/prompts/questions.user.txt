@@ -1,0 +1,9 @@
+生成数量：{{count}}
+场景ID与名称：{{scenario}}
+补充要求（可写人群、阶段、画像要求、模式、风格或对照条件；无则填“按场景默认”）：{{requirements}}
+
+已确认可使用的问题素材，无素材填[]：
+{{source_materials}}
+
+需要避开重复的问题与画像，无内容填[]：
+{{existing_questions}}

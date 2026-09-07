@@ -6,6 +6,7 @@ import argparse
 import csv
 import json
 import os
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -42,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--mode", default="review", help="Profile-defined annotation mode")
     parser.add_argument("--dataset", help="Defaults to a profile- and mode-specific v1 name")
+    parser.add_argument("--guidelines", type=Path, help="Use batch-specific Markdown guidelines")
     parser.add_argument(
         "--limit",
         type=int,
@@ -419,6 +421,13 @@ def run(args: argparse.Namespace) -> int:
     rows = sampling.rows
     dataset_name = args.dataset or profile.default_dataset_name(args.mode)
 
+    task_spec = profile.task_spec(args.mode)
+    if args.guidelines:
+        guidelines = args.guidelines.read_text(encoding="utf-8")
+        if not guidelines.strip():
+            raise ValueError(f"{args.guidelines}: guidelines cannot be empty")
+        task_spec = replace(task_spec, guidelines=guidelines)
+
     if args.dry_run:
         client = argilla.offline_client()
     else:
@@ -428,7 +437,6 @@ def run(args: argparse.Namespace) -> int:
             )
         client = rg.Argilla(api_url=api_url, api_key=api_key)
 
-    task_spec = profile.task_spec(args.mode)
     record_specs = [profile.record_spec(row, args.mode) for row in rows]
     settings = argilla.build_settings(task_spec, args.min_submitted, client)
     records = argilla.build_records(record_specs)

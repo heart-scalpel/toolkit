@@ -2,7 +2,7 @@
 删除
 ```
 uv run python run.py \
-  --delete-dataset medical-safety-review-test \
+  --delete-dataset medical-case-review-100-20260907 \
   --yes
 ```
 
@@ -14,27 +14,25 @@ uv run python run.py --profile cozie-safety --mode review --dry-run
 创建
 ```
 uv run python run.py \
-  --profile cozie-safety \
+  --profile cozie-medical-review \
   --mode review \
-  --offset 20 \
-  --limit 10 \
-  --random \
   --min-submitted 1 \
-  --input 'workbench/input/safety_classifier_results_340_annotation_ready.csv' \
-  --dataset medical-safety-review-test
+  --input workbench/output/cases-2026-09-07T01-19-57-173Z_engine.csv \
+  --dataset medical-case-review-100-20260907
 ```
 
-细节创建
+模板
 ```
 uv run python run.py \
-  --profile cozie-safety \
+  --profile xxx \
   --mode review \
-  --offset 20 \
-  --limit 10 \
+  --offset xx \
+  --limit xx \
   --random \
-  --min-submitted 5 \
-  --input 'workbench/input/safety_classifier_results_340_annotation_ready.csv' \
-  --dataset medical-annotation-5p-limit10
+  --min-submitted xx \
+  --guidelines xxx \
+  --input xxx \
+  --dataset xxx
 ```
 
 查看数据进度

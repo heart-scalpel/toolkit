@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Langfuse · Output 收集器</title>
+<style>
+:root{color-scheme:light;--ink:#172b29;--muted:#657773;--line:#dce5df;--green:#17644e;--paper:#f4f6f1;--amber:#926022}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}main{max-width:1260px;padding:36px 30px 55px;margin:auto}header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:24px}.eyebrow{font-size:11px;letter-spacing:2px;color:var(--green);font-weight:700}h1{font-size:30px;letter-spacing:-1px;margin:6px 0}p{margin:5px 0;color:var(--muted)}.local{border:1px solid var(--line);border-radius:30px;background:#fff;padding:7px 13px;white-space:nowrap;font-size:12px}.dot{color:var(--green);margin-right:5px}.cards{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card,.collection{background:white;border:1px solid var(--line);border-radius:14px;padding:22px}.step{display:inline-grid;place-items:center;border-radius:7px;background:#e8f1eb;color:var(--green);width:27px;height:27px;margin-right:9px;font-size:13px}h2{font-size:18px;margin:0 0 5px;font-weight:650}.hint{font-size:12px;color:var(--muted)}label{display:block;font-size:12px;font-weight:600;margin:15px 0 6px}input[type=text],textarea{font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);border:1px solid #cedbd2;border-radius:8px;background:#fcfdfb;padding:10px 12px}input[type=text]{width:150px}textarea{display:block;width:100%;height:196px;resize:vertical}input:focus,textarea:focus{outline:2px solid #75ad98;outline-offset:1px}.prefix-row{display:flex;align-items:center;gap:12px;margin-bottom:11px}.prefix-row label{margin:0;white-space:nowrap}.card .description{min-height:44px}.review-spacer{min-height:43px;margin-bottom:11px;display:flex;align-items:center}.check{display:flex;align-items:center;gap:7px;font-weight:400;margin:0}button,.file-label{font:inherit;font-size:13px;cursor:pointer;border:1px solid #ccd8d0;background:#fff;border-radius:8px;padding:8px 13px;color:var(--ink);display:inline-flex;gap:6px;align-items:center;justify-content:center}button:hover,.file-label:hover{background:#edf3ee}button:focus-visible,.file-label:focus-within{outline:2px solid #75ad98;outline-offset:2px}button:disabled{opacity:.42;cursor:not-allowed}.primary{background:var(--green);border-color:var(--green);color:#fff}.primary:hover{background:#104c3a}.card button.primary{margin-top:13px}.message{font-size:13px;padding:11px 14px;border-radius:9px;border:1px solid var(--line);margin:16px 0;background:#eef4ef;white-space:pre-wrap;overflow-wrap:anywhere}.message.error{background:#fff1ed;color:#993e31;border-color:#eac6bc}.message:empty{display:none}.collection{margin-top:20px;padding:0;overflow:hidden}.collection-head{padding:22px;display:flex;align-items:center;justify-content:space-between;gap:15px}.stats{display:flex;gap:22px;flex-wrap:wrap}.stat{font-size:12px;color:var(--muted)}.stat b{font-size:23px;color:var(--ink);font-weight:650;margin-right:5px}.stat.attention b{color:var(--amber)}.exports{display:flex;flex-wrap:wrap;gap:8px}.table-wrap{overflow:auto;max-height:480px}table{border-collapse:collapse;width:100%;min-width:690px;text-align:left}th{position:sticky;top:0;background:#f5f8f4;font-size:12px;color:var(--muted);font-weight:500}th,td{padding:13px 20px;border-top:1px solid #e7ece7}td{font-size:13px;vertical-align:top}.id{font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.question{max-width:510px;overflow-wrap:anywhere}.badge{font-size:11px;padding:3px 8px;border-radius:20px;background:#eaf3ed;color:var(--green);white-space:nowrap}.badge.pending{color:var(--amber);background:#faf1e3}.actions{display:flex;gap:5px;white-space:nowrap}.actions button{font-size:11px;padding:5px 8px}.delete{color:#91615b}.empty{padding:44px 20px;text-align:center;color:var(--muted)}.footer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 22px;border-top:1px solid var(--line);background:#fcfdfb}.footer .tools{display:flex;gap:8px;flex-shrink:0}.file-label{margin:0;font-weight:400}.file-label input{position:absolute;width:1px;height:1px;opacity:0}.footnote{margin-top:14px;font-size:12px}.saved{font-size:12px;color:var(--green)}dialog{border:1px solid var(--line);border-radius:14px;padding:24px;width:min(840px,92vw);max-height:85vh}dialog::backdrop{background:#142c2955}dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7;background:#f5f8f4;padding:16px;border-radius:8px}dialog .top{display:flex;justify-content:space-between;align-items:center}.small-danger{font-size:12px;color:#91615b;border:0;background:transparent}
+@media(max-width:800px){main{padding:22px 14px}.cards{grid-template-columns:1fr}header,.collection-head{flex-direction:column}.review-spacer{min-height:45px}.footer{align-items:flex-start;flex-direction:column}h1{font-size:26px}.card{padding:18px}.card .description{min-height:0}.stats{gap:15px}}
+.batch-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:18px;padding:18px 22px;border:1px solid #b9d3c3;background:#eaf3ed;border-radius:12px}.batch-bar h2{font-size:16px}.batch-controls{display:flex;align-items:center;gap:10px;flex-shrink:0}.batch-controls label{margin:0;white-space:nowrap}.batch-controls select{max-width:200px;border:1px solid #bdd0c3;background:#fff;border-radius:8px;padding:9px;font:inherit;font-size:13px}.batch-controls button{white-space:nowrap}@media(max-width:1100px){.batch-bar{align-items:flex-start;flex-direction:column}.batch-controls{flex-wrap:wrap}}@media(max-width:600px){.batch-bar{padding:17px}.batch-controls{width:100%}.batch-controls select{flex:1;min-width:0}.batch-controls button{width:100%}}
+</style>
+</head>
+<body>
+<main>
+<header><div><div class="eyebrow">LANGFUSE / CASE WORKBENCH</div><h1>把两份 Output 接在一起</h1><p>整批问题 → 整批问诊材料 → 标注 CSV。编号自动带上，一次复制即可。</p></div><div class="local"><span class="dot">●</span>本机使用 · 无需联网</div></header>
+<section class="cards">
+<article class="card"><h2><span class="step">01</span>问题与画像</h2><p class="hint description">粘贴 medical/user-question-generator 的 Output。支持一批 questions，也支持连续粘贴多段完整 JSON。</p>
+<div class="prefix-row"><label for="prefix">编号前缀</label><input id="prefix" type="text" value="S01" maxlength="60" spellcheck="false"><span class="hint">生成 S01-Q001；新批次可用 S01-B02</span></div>
+<label for="questions-input">第一个 Output</label><textarea id="questions-input" spellcheck="false" placeholder='{"questions": [{"local_id": "Q001", "user_input": "…", "user_profile": {…}, …}]}'></textarea><button class="primary" id="add-questions">收下问题与画像</button></article>
+<article class="card"><h2><span class="step">02</span>医生审核材料</h2><p class="hint description">粘贴 medical/case-review-draft 返回的整批 reviews。一次接收、逐条匹配；也兼容之前的单条 Output。</p>
+<div class="review-spacer"><label class="check"><input id="replace-reviews" type="checkbox">用新材料替换同编号的旧问诊材料</label></div>
+<label for="reviews-input">第二个 Output</label><textarea id="reviews-input" spellcheck="false" placeholder='{"reviews": [{"case_id": "S01-Q001", "safety": {…}, "initial_assessment": "…", "possible_consultation_response": "…", "follow_ups": […]}, …]}'></textarea><button class="primary" id="add-reviews">收下医生审核材料</button></article>
+</section>
+<section class="batch-bar" aria-label="批量问诊"><div><h2>一次复制整批，交给第二个提示词</h2><p class="hint">选一个批次或全部问题，复制后粘贴到 Langfuse 的 case_input。返回的整段 reviews 粘到右上方。</p></div><div class="batch-controls"><label for="batch-scope">范围</label><select id="batch-scope"><option value="*">全部问题（0 条）</option></select><button class="primary" id="copy-batch" disabled>复制整批问诊输入（0 条）</button></div></section>
+<div id="message" class="message" role="status" aria-live="polite"></div>
+<section class="collection"><div class="collection-head"><div class="stats"><div class="stat"><b id="count-questions">0</b>条问题</div><div class="stat"><b id="count-ready">0</b>已配齐</div><div class="stat attention"><b id="count-missing">0</b>待补材料</div><div class="stat attention"><b id="count-orphans">0</b>待关联</div></div><div class="exports"><button id="export-backup">下载 JSON 备份</button><button class="primary" id="export-csv">下载 CSV</button></div></div>
+<div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>用户问题</th><th>收集状态</th><th>操作</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="footer"><div><div id="save-status" class="saved">已接收的内容保存在当前浏览器</div><div class="hint">建议每次结束前下载 JSON 备份；换浏览器或电脑后可恢复。</div></div><div class="tools"><label class="file-label">恢复备份<input id="restore-backup" type="file" accept=".json,application/json" aria-label="恢复 JSON 备份"></label><button class="small-danger" id="clear-all">清空收集</button></div></div></section>
+<p class="footnote">「复制整批问诊输入」会带上所选问题的编号、输入和完整画像。第二个提示词需使用批量版 System、User 与输出 Schema；变量名仍为 case_input。CSV 保留问题、完整画像和候选材料，医生确认栏留空。尚未配齐的行会标记 missing_review。</p>
+<p class="hint">CSV 对公式开头的字段加文本前缀，JSON 备份与复制内容保留原文。此工具不调用模型，也不上传数据。</p>
+</main>
+<dialog id="detail"><div class="top"><h2 id="detail-title">查看材料</h2><button id="close-detail">关闭</button></div><p id="detail-hint" class="hint"></p><pre id="detail-content"></pre></dialog>
+<script id="question-schema" type="application/json">{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "QuestionOutput v2.0.0", "type": "object", "properties": {"questions": {"type": "array", "items": {"type": "object", "properties": {"local_id": {"type": "string", "pattern": "^Q[0-9]{3,}$"}, "user_input": {"type": "string", "minLength": 1}, "user_profile": {"type": "object", "properties": {"stage": {"type": ["string", "null"], "minLength": 1}, "locale": {"type": "string", "minLength": 1}, "baby_age_days": {"type": ["integer", "null"], "minimum": 0}, "background": {"type": "array", "items": {"type": "string", "minLength": 1}, "maxItems": 8, "uniqueItems": true}}, "required": ["stage", "locale", "baby_age_days", "background"], "additionalProperties": false}, "source_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}, "pair_key": {"type": ["string", "null"], "minLength": 1}, "changed_factor": {"type": ["string", "null"], "minLength": 1}}, "required": ["local_id", "user_input", "user_profile", "source_ids", "pair_key", "changed_factor"], "additionalProperties": false}, "minItems": 1}}, "required": ["questions"], "additionalProperties": false}</script>
+<script id="review-schema" type="application/json">{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "ReviewOutput v4.0.0", "type": "object", "properties": {"reviews": {"type": "array", "minItems": 1, "items": {"type": "object", "properties": {"case_id": {"type": "string", "minLength": 1}, "safety": {"type": "object", "properties": {"candidate_class": {"enum": ["non_health", "general_health", "personalized_health", "general_medical", "restricted_medical", null]}, "boundary_note": {"type": "string"}}, "required": ["candidate_class", "boundary_note"], "additionalProperties": false}, "initial_assessment": {"type": "string", "minLength": 1}, "possible_consultation_response": {"type": "string", "minLength": 1}, "follow_ups": {"type": "array", "maxItems": 2, "items": {"type": "object", "properties": {"question": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1}}, "required": ["question", "purpose"], "additionalProperties": false}}}, "required": ["case_id", "safety", "initial_assessment", "possible_consultation_response", "follow_ups"], "additionalProperties": false}}}, "required": ["reviews"], "additionalProperties": false}</script>
+<script id="collector-core">
+const Collector = (() => {
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const object = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const stable = v => JSON.stringify(v, function(k, x) { return object(x) ? Object.fromEntries(Object.keys(x).sort().map(key => [key, x[key]])) : x; });
+  function validate(value, schema, path = 'Output') {
+    if (schema.enum && !schema.enum.some(x => stable(x) === stable(value))) throw Error(`${path} 不在允许的取值中`);
+    if (schema.type) {
+      const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+      const matches = t => t === 'null' ? value === null : t === 'array' ? Array.isArray(value) : t === 'object' ? object(value) : t === 'integer' ? Number.isInteger(value) : typeof value === t;
+      if (!types.some(matches)) throw Error(`${path} 应为 ${types.join(' / ')}；请使用当前精简版输出`);
+    }
+    if (typeof value === 'string') {
+      if (schema.minLength && value.length < schema.minLength) throw Error(`${path} 不能为空`);
+      if (schema.pattern && !new RegExp(schema.pattern).test(value)) throw Error(`${path} 格式不正确`);
+    }
+    if (typeof value === 'number' && schema.minimum !== undefined && value < schema.minimum) throw Error(`${path} 不能小于 ${schema.minimum}`);
+    if (Array.isArray(value)) {
+      if (schema.minItems !== undefined && value.length < schema.minItems) throw Error(`${path} 至少需要 ${schema.minItems} 项`);
+      if (schema.maxItems !== undefined && value.length > schema.maxItems) throw Error(`${path} 最多允许 ${schema.maxItems} 项`);
+      if (schema.uniqueItems && new Set(value.map(stable)).size !== value.length) throw Error(`${path} 含重复项`);
+      value.forEach((x, i) => validate(x, schema.items || {}, `${path}[${i + 1}]`));
+    }
+    if (object(value)) {
+      for (const k of schema.required || []) if (!own(value, k)) throw Error(`${path} 缺少 ${k}`);
+      for (const [k, x] of Object.entries(value)) {
+        if (schema.additionalProperties === false && !own(schema.properties || {}, k)) throw Error(`${path} 有当前版本不使用的字段 ${k}`);
+        if (own(schema.properties || {}, k)) validate(x, schema.properties[k], `${path}.${k}`);
+      }
+    }
+  }
+  // Read complete JSON blocks without splitting on braces inside quoted user content.
+  function parseBlocks(raw) {
+    let text = raw.replace(/^\uFEFF/, '').trim();
+    if (!text) throw Error('请先粘贴 Output');
+    const values = []; let pos = 0; let fenced = false;
+    while (pos < text.length) {
+      while (/\s/.test(text[pos] || '') && pos < text.length) pos++;
+      if (pos === text.length) break;
+      if (text.startsWith('```', pos)) {
+        if (fenced) { pos += 3; fenced = false; continue; }
+        const match = text.slice(pos).match(/^```(?:json)?[ \t]*\r?\n/i);
+        if (!match) throw Error('代码块请使用 ```json 后换行，或只复制 JSON 内容');
+        pos += match[0].length; fenced = true; continue;
+      }
+      if (text[pos] !== '{' && text[pos] !== '[') throw Error(`第 ${pos + 1} 个字符附近不是 JSON；请仅粘贴完整 Output`);
+      const start = pos; let depth = 0, quoted = false, escaped = false, finished = false;
+      for (; pos < text.length; pos++) {
+        const c = text[pos];
+        if (quoted) { if (escaped) escaped = false; else if (c === '\\') escaped = true; else if (c === '"') quoted = false; }
+        else if (c === '"') quoted = true;
+        else if (c === '{' || c === '[') depth++;
+        else if (c === '}' || c === ']') { depth--; if (depth === 0) { pos++; finished = true; break; } }
+      }
+      if (!finished) throw Error('JSON 没有结束，可能复制不完整；本次内容尚未接收');
+      try { values.push(JSON.parse(text.slice(start, pos))); }
+      catch (e) { throw Error(`JSON 格式错误：${e.message}`); }
+    }
+    if (fenced) throw Error('代码块没有结束，请补齐结尾或只复制 JSON 内容');
+    if (!values.length) throw Error('没有找到 JSON 内容');
+    return values;
+  }
+  function extract(raw, kind) {
+    const results = [];
+    function visit(value, depth = 0) {
+      if (depth > 8) throw Error('Output 包装层级过多');
+      if (object(value) && own(value, 'input') && own(value, 'output')) {
+        const outputs = typeof value.output === 'string' ? parseBlocks(value.output) : [value.output];
+        outputs.forEach(v => visit(v, depth + 1)); return;
+      }
+      if (Array.isArray(value)) { value.forEach(v => visit(v, depth + 1)); return; }
+      const wrapper = kind === 'questions' ? 'questions' : 'reviews';
+      if (object(value) && own(value, wrapper)) {
+        if (!Array.isArray(value[wrapper])) throw Error(`${wrapper} 应为数组`);
+        value[wrapper].forEach(v => visit(v, depth + 1)); return;
+      }
+      results.push(value);
+    }
+    parseBlocks(raw).forEach(v => visit(v));
+    if (!results.length) throw Error('Output 中没有记录');
+    return results;
+  }
+  const empty = () => ({ format: 'langfuse-output-collector', version: 1, questions: [], reviews: [] });
+  function addQuestions(state, items, prefix, schema) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,59}$/.test(prefix)) throw Error('编号前缀请使用字母、数字、短横线或下划线，例如 S01-B02');
+    items.forEach((q, i) => validate(q, schema.properties.questions.items, `问题 ${i + 1}`));
+    const next = JSON.parse(JSON.stringify(state)); let added = 0, skipped = 0;
+    for (const q of items) {
+      const id = `${prefix}-${q.local_id}`;
+      const existing = next.questions.find(x => x.case_id === id);
+      if (existing) {
+        if (stable(existing.question) === stable(q)) { skipped++; continue; }
+        throw Error(`${id} 已有不同的问题或画像。本批未写入；新批次请换编号前缀，修订时可先删除该条。`);
+      }
+      next.questions.push({ case_id: id, id_prefix: prefix, question: q }); added++;
+    }
+    return { state: next, added, skipped };
+  }
+  function addReviews(state, items, replace, schema) {
+    const itemSchema = schema.properties?.reviews?.items || schema;
+    items.forEach((r, i) => validate(r, itemSchema, `问诊材料 ${i + 1}`));
+    const next = JSON.parse(JSON.stringify(state)); let added = 0, skipped = 0, replaced = 0;
+    for (const r of items) {
+      const i = next.reviews.findIndex(x => x.case_id === r.case_id);
+      if (i >= 0) {
+        if (stable(next.reviews[i]) === stable(r)) { skipped++; continue; }
+        if (!replace) throw Error(`${r.case_id} 已有不同问诊材料。本批未写入；确认要更新时勾选「替换同编号的旧问诊材料」。`);
+        next.reviews[i] = r; replaced++;
+      } else { next.reviews.push(r); added++; }
+    }
+    return { state: next, added, skipped, replaced };
+  }
+  function verifyBackup(v, questionSchema, reviewSchema) {
+    if (!object(v) || v.format !== 'langfuse-output-collector' || v.version !== 1 || !Array.isArray(v.questions) || !Array.isArray(v.reviews)) throw Error('这不是本工具的 JSON 备份；普通 Output 请粘贴到上方输入框');
+    let next = empty();
+    for (const x of v.questions) {
+      if (!object(x) || typeof x.id_prefix !== 'string' || !object(x.question) || x.case_id !== `${x.id_prefix}-${x.question.local_id}`) throw Error('备份中的问题编号或结构不正确');
+      const result = addQuestions(next, [x.question], x.id_prefix, questionSchema);
+      if (result.skipped) throw Error('备份中存在重复问题编号'); next = result.state;
+    }
+    const result = addReviews(next, v.reviews, false, reviewSchema);
+    if (result.skipped) throw Error('备份中存在重复问诊编号');
+    return result.state;
+  }
+  function stats(state) {
+    const q = new Set(state.questions.map(x => x.case_id)), r = new Set(state.reviews.map(x => x.case_id));
+    const ready = state.questions.filter(x => r.has(x.case_id)).length;
+    return { questions: q.size, ready, missing: q.size - ready, orphans: state.reviews.filter(x => !q.has(x.case_id)).length };
+  }
+  function caseInput(entry) { return { case_id: entry.case_id, user_input: entry.question.user_input, user_profile: entry.question.user_profile }; }
+  function batchInput(state, scope = '*') {
+    const entries = state.questions.filter(x => scope === '*' || x.id_prefix === scope);
+    if (!entries.length) throw Error('所选范围没有问题，请先收下问题与画像');
+    return { cases: entries.map(caseInput) };
+  }
+  function csv(state) {
+    if (!state.questions.length) throw Error('请先收下至少一条问题');
+    if (stats(state).orphans) throw Error('还有问诊材料未找到同编号的问题。请补充问题或删除多余材料后导出，避免漏掉记录。');
+    const headers = ['case_id','id_prefix','local_id','user_input','user_profile','source_ids','pair_key','changed_factor','candidate_safety_class','boundary_note','initial_assessment','possible_consultation_response','follow_ups','draft_status','expected_safety_class','confirmed_assessment','confirmed_consultation_response','confirmed_follow_ups','reviewer_name','review_status'];
+    const reviews = new Map(state.reviews.map(x => [x.case_id, x])); let protectedCells = 0;
+    const cell = value => {
+      let text = value === null || value === undefined ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+      if (/^\s*[=+\-@]/.test(text)) { text = "'" + text; protectedCells++; }
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    const lines = [headers.map(cell).join(',')];
+    for (const x of state.questions) {
+      const q = x.question, r = reviews.get(x.case_id);
+      const pair = q.pair_key === null ? null : `${x.id_prefix}-${q.pair_key}`;
+      lines.push([x.case_id,x.id_prefix,q.local_id,q.user_input,q.user_profile,q.source_ids,pair,q.changed_factor,r?.safety.candidate_class,r?.safety.boundary_note,r?.initial_assessment,r?.possible_consultation_response,r?.follow_ups,r ? 'draft_ready' : 'missing_review','','','','','',''].map(cell).join(','));
+    }
+    return { text: '\uFEFF' + lines.join('\r\n') + '\r\n', protectedCells };
+  }
+  return { empty, validate, parseBlocks, extract, addQuestions, addReviews, verifyBackup, stats, caseInput, batchInput, csv };
+})();
+</script>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const questionSchema = JSON.parse($('question-schema').textContent), reviewSchema = JSON.parse($('review-schema').textContent);
+  const storageKey = 'langfuse-output-collector-v1'; let state = Collector.empty(); let volatile = false; let batchScope = null;
+  function notify(message, error = false) { $('message').textContent = message; $('message').classList.toggle('error', error); }
+  function save() {
+    try { localStorage.setItem(storageKey, JSON.stringify(state)); volatile = false; $('save-status').textContent = '已自动保存到当前浏览器 · ' + new Date().toLocaleTimeString(); }
+    catch { volatile = true; $('save-status').textContent = '浏览器暂存不可用：请下载 JSON 备份，关闭页面前保存'; }
+  }
+  function commit(next) { state = next; save(); render(); }
+  function button(text, action, cls = '') { const b = document.createElement('button'); b.textContent = text; b.className = cls; b.addEventListener('click', action); return b; }
+  function detail(title, data, hint = '') { $('detail-title').textContent = title; $('detail-hint').textContent = hint; $('detail-content').textContent = JSON.stringify(data, null, 2); $('detail').showModal(); }
+  async function copyInput(entry) {
+    const input = Collector.caseInput(entry), text = JSON.stringify(input, null, 2);
+    try { await navigator.clipboard.writeText(text); notify(`已复制 ${entry.case_id} 的 case_input，可粘贴到第二个提示词的变量框。`); }
+    catch { detail(entry.case_id + ' · 问诊输入', input, '浏览器未允许自动复制，请选中下方完整内容复制到 case_input。'); }
+  }
+  function renderBatch() {
+    const scopes = [...new Set(state.questions.map(x => x.id_prefix))];
+    if (batchScope !== '*' && !scopes.includes(batchScope)) batchScope = scopes.at(-1) || '*';
+    const select = $('batch-scope'); select.replaceChildren();
+    for (const scope of ['*', ...scopes]) {
+      const count = state.questions.filter(x => scope === '*' || x.id_prefix === scope).length;
+      const option = document.createElement('option'); option.value = scope;
+      option.textContent = `${scope === '*' ? '全部问题' : scope}（${count} 条）`;
+      select.append(option);
+    }
+    select.value = batchScope;
+    const count = state.questions.filter(x => batchScope === '*' || x.id_prefix === batchScope).length;
+    $('copy-batch').textContent = `复制整批问诊输入（${count} 条）`;
+    $('copy-batch').disabled = !count;
+  }
+  $('batch-scope').addEventListener('change', event => { batchScope = event.target.value; renderBatch(); });
+  $('copy-batch').addEventListener('click', async () => {
+    try {
+      const input = Collector.batchInput(state, batchScope), text = JSON.stringify(input, null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        notify(`已一次复制 ${input.cases.length} 条问诊输入。粘贴到第二个提示词的 case_input，生成后把整段 reviews 粘贴到右侧。`);
+      } catch {
+        detail(`整批问诊输入 · ${input.cases.length} 条`, input, '已选中整段内容，请按 ⌘C（Windows：Ctrl+C）复制，再粘贴到第二个提示词的 case_input。');
+        const range = document.createRange(); range.selectNodeContents($('detail-content'));
+        const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
+      }
+    } catch (e) { notify(e.message, true); }
+  });
+  function remove(id) {
+    if (!confirm(`删除 ${id} 的问题和问诊材料？此操作会更新浏览器中的收集记录。`)) return;
+    commit({ ...state, questions: state.questions.filter(x => x.case_id !== id), reviews: state.reviews.filter(x => x.case_id !== id) }); notify(`已删除 ${id}`);
+  }
+  function render() {
+    renderBatch();
+    const counts = Collector.stats(state);
+    for (const k of ['questions','ready','missing','orphans']) $('count-' + k).textContent = counts[k];
+    $('export-csv').disabled = !counts.questions;
+    $('export-backup').disabled = !state.questions.length && !state.reviews.length;
+    $('export-csv').textContent = counts.questions ? `下载 CSV（${counts.questions} 条）` : '下载 CSV';
+    const body = $('rows'); body.replaceChildren();
+    const questions = new Map(state.questions.map(x => [x.case_id, x])), reviews = new Map(state.reviews.map(x => [x.case_id, x]));
+    const ids = [...questions.keys(), ...[...reviews.keys()].filter(id => !questions.has(id))];
+    if (!ids.length) { const tr = body.insertRow(); const cell = tr.insertCell(); cell.colSpan = 4; cell.className = 'empty'; cell.textContent = '从左侧粘贴第一批问题开始，已收集的内容会出现在这里。'; return; }
+    for (const id of ids) {
+      const q = questions.get(id), r = reviews.get(id), tr = body.insertRow();
+      let td = tr.insertCell(); td.className = 'id'; td.textContent = id;
+      td = tr.insertCell(); td.className = 'question'; td.textContent = q ? q.question.user_input : '尚未收到同编号的问题与画像';
+      td = tr.insertCell(); const badge = document.createElement('span'); badge.className = 'badge' + (q && r ? '' : ' pending'); badge.textContent = q && r ? '材料已配齐' : q ? '待补问诊' : '待关联问题'; td.append(badge);
+      td = tr.insertCell(); const actions = document.createElement('div'); actions.className = 'actions';
+      const copy = button('复制单条', () => copyInput(q)); copy.disabled = !q; actions.append(copy);
+      actions.append(button('查看', () => detail(id, { ...(q ? { ...Collector.caseInput(q), source_ids: q.question.source_ids, pair_key: q.question.pair_key, changed_factor: q.question.changed_factor } : {}), review: r || null })));
+      actions.append(button('删除', () => remove(id), 'delete')); td.append(actions);
+    }
+  }
+  $('add-questions').addEventListener('click', () => {
+    try { const result = Collector.addQuestions(state, Collector.extract($('questions-input').value, 'questions'), $('prefix').value.trim(), questionSchema); batchScope = $('prefix').value.trim(); commit(result.state); $('questions-input').value = ''; notify(`收下 ${result.added} 条问题，跳过 ${result.skipped} 条重复记录。请点下方「复制整批问诊输入」继续第二步。`); }
+    catch (e) { notify(e.message, true); }
+  });
+  $('add-reviews').addEventListener('click', () => {
+    try { const result = Collector.addReviews(state, Collector.extract($('reviews-input').value, 'reviews'), $('replace-reviews').checked, reviewSchema); commit(result.state); $('reviews-input').value = ''; $('replace-reviews').checked = false; const orphan = Collector.stats(state).orphans; notify(`收下 ${result.added} 条问诊材料，跳过 ${result.skipped} 条重复记录，替换 ${result.replaced} 条。${orphan ? `还有 ${orphan} 条待关联问题，已暂存，请核对 case_id。` : ''}`); }
+    catch (e) { notify(e.message, true); }
+  });
+  const stamp = () => new Date().toISOString().replace(/[:.]/g, '-');
+  function download(text, type, name) { const url = URL.createObjectURL(new Blob([text], { type })); const a = document.createElement('a'); a.href = url; a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 15000); }
+  $('export-csv').addEventListener('click', () => {
+    try { const result = Collector.csv(state); download(result.text, 'text/csv;charset=utf-8', `cases-${stamp()}.csv`); const missing = Collector.stats(state).missing; notify(`已导出 ${state.questions.length} 条。${missing ? `${missing} 条尚缺问诊材料，已标记 missing_review。` : '全部已配齐候选材料，医生确认栏保持空白。'}${result.protectedCells ? ` ${result.protectedCells} 个单元格添加了文本前缀；完整原文保留在 JSON 备份中。` : ''}`); }
+    catch (e) { notify(e.message, true); }
+  });
+  $('export-backup').addEventListener('click', () => download(JSON.stringify(state, null, 2), 'application/json;charset=utf-8', `cases-backup-${stamp()}.json`));
+  $('restore-backup').addEventListener('change', async event => {
+    const file = event.target.files[0]; if (!file) return;
+    try { const next = Collector.verifyBackup(JSON.parse((await file.text()).replace(/^\uFEFF/, '')), questionSchema, reviewSchema); if ((state.questions.length || state.reviews.length) && !confirm(`用备份中的 ${next.questions.length} 条问题和 ${next.reviews.length} 条问诊材料替换当前收集？需要保留当前内容时，请先取消并下载备份。`)) return; commit(next); notify('已恢复 JSON 备份。'); }
+    catch (e) { notify('恢复失败，当前内容未改变：' + e.message, true); }
+    finally { event.target.value = ''; }
+  });
+  $('clear-all').addEventListener('click', () => { if (confirm('清空当前浏览器中已收集的问题和问诊材料？请先下载 JSON 备份。')) { commit(Collector.empty()); notify('已清空收集。'); } });
+  $('close-detail').addEventListener('click', () => $('detail').close());
+  window.addEventListener('beforeunload', e => { if (volatile && (state.questions.length || state.reviews.length)) { e.preventDefault(); e.returnValue = ''; } });
+  try { const saved = localStorage.getItem(storageKey); if (saved) { state = Collector.verifyBackup(JSON.parse(saved), questionSchema, reviewSchema); $('save-status').textContent = '已恢复上次收集的内容'; } }
+  catch (e) { notify('未能恢复浏览器暂存，请使用 JSON 备份恢复：' + e.message, true); $('save-status').textContent = '未能读取浏览器暂存'; }
+  render();
+})();
+</script>
+</body>
+</html>

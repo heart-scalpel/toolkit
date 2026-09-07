@@ -1,10 +1,12 @@
 """Review task profile registry."""
 
 from app.profiles.base import AnnotationProfile
+from app.profiles.cozie_medical_review import PROFILE as COZIE_MEDICAL_REVIEW_PROFILE
 from app.profiles.cozie_safety import PROFILE as COZIE_SAFETY_PROFILE
 
 _PROFILES: dict[str, AnnotationProfile] = {
     COZIE_SAFETY_PROFILE.name: COZIE_SAFETY_PROFILE,
+    COZIE_MEDICAL_REVIEW_PROFILE.name: COZIE_MEDICAL_REVIEW_PROFILE,
 }
 
 

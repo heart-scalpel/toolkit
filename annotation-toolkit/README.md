@@ -28,6 +28,51 @@ annotation-toolkit/
 - 双语选项：中文展示名 + 稳定英文值
 - 多人审核：默认每条至少两份有效提交
 
+## 母婴候选问诊材料审核
+
+收集器导出的问题与画像先用 `prompt-agent/classify.py` 批跑，再通过独立 Profile
+`cozie-medical-review` 创建全新数据集。它展示用户画像、候选分类、初步判断、可能
+问诊回应、0—2 条追问和本次引擎分级；对照组信息仅保留在隐藏元数据中，不生成历史或预填人工答案。
+医生单选人工安全分类，边界状态可多选，审核候选材料并填写必要修订。“是否需要专家裁决”中医生直接选择“否”，非医生才根据是否需要专家判断选择“是”或“否”。原有 `cozie-safety` 保持原流程。
+
+~~~bash
+uv run python run.py \
+  --profile cozie-medical-review \
+  --mode review \
+  --input workbench/output/cases-2026-09-07T01-19-57-173Z_engine.csv \
+  --dataset medical-case-review-100-20260907 \
+  --min-submitted 1 \
+  --dry-run
+~~~
+
+离线校验通过后移除 `--dry-run` 创建数据集；同名数据集已存在时会拒绝覆盖。
+输入必须包含完整候选材料和明确的引擎运行结果。成功行需要合法分类和理由；失败行必须有错误信息且分类、理由均为空，原样进入人工审核，并通过 engine_status 标识，不补造分类。
+统一使用[审核规范](docs/medical_case_review_guidelines.md)，随 Profile 默认写入数据集 Guidelines。
+导出仍按记录与标注者分别保存，通过 case_id 关联原始结果 CSV；形成最终基线前
+按规范检查修订内容和分歧，提交数达标不自动代表医生结论一致。
+
+右侧只保留一次“安全分类医学逻辑”，不再单独收集“修订后的初步判断及依据”。
+需要修订时，审核人在“问诊回应的修改意见”和“问诊追问修改”中直接填写普通文字；
+不修改留空，删除全部追问写“无需追问”，并可在问诊回应的修改意见中记录材料问题或排除原因。
+导出保留现有列名：`confirmed_consultation_response` 保存回复或问题说明原文，
+`confirmed_follow_ups` 保存追问原文，不要求 JSON。整理最终基线时需区分完整回复
+和问题说明，并把“无需追问”解释为清空追问；不能把这些原文直接当作已确认的结构化材料。
+原始 CSV 中的 `confirmed_assessment` 列照常保留，但本版表单不再收集此项。
+
+同类审核任务统一使用这份规范，导入时可以省略 `--guidelines`，也可显式指定下方路径。
+以后需要使用其他规范时，可通过 `--guidelines` 覆盖，仅影响当次新建数据集。100 条批次示例：
+
+~~~bash
+uv run python run.py \
+  --profile cozie-medical-review \
+  --mode review \
+  --input workbench/output/cases-2026-09-07T01-19-57-173Z_engine.csv \
+  --guidelines docs/medical_case_review_guidelines.md \
+  --dataset medical-case-review-100-20260907 \
+  --min-submitted 1
+~~~
+
+
 平台操作一页说明：[Argilla 标注平台 · 一页操作说明](docs/argilla_annotation_platform_one_page_guide.png)
 
 ## 快速开始

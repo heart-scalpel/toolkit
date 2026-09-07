@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "QuestionOutput v2.0.0",
+  "type": "object",
+  "properties": {
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "local_id": {
+            "type": "string",
+            "pattern": "^Q[0-9]{3,}$"
+          },
+          "user_input": {
+            "type": "string",
+            "minLength": 1
+          },
+          "user_profile": {
+            "type": "object",
+            "properties": {
+              "stage": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1
+              },
+              "locale": {
+                "type": "string",
+                "minLength": 1
+              },
+              "baby_age_days": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "background": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "maxItems": 8,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "stage",
+              "locale",
+              "baby_age_days",
+              "background"
+            ],
+            "additionalProperties": false
+          },
+          "source_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "pair_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "changed_factor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        },
+        "required": [
+          "local_id",
+          "user_input",
+          "user_profile",
+          "source_ids",
+          "pair_key",
+          "changed_factor"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "questions"
+  ],
+  "additionalProperties": false
+}

@@ -21,6 +21,20 @@ uv run python classify.py --env /path/to/.env
 结果写入 `workbench/output/safety_classifier_results.csv`，包含原始输入、期望分级、
 模型分级、简短依据、是否匹配和错误信息。
 
+批跑收集器导出的问诊 CSV 时，原始列（包括 case_id、画像、候选材料和空白人工字段）
+全部保留。模型只读取用户问题和已提供的画像；若源文件含历史则传入 short_memory，
+没有历史的单轮用例不补历史。候选分类、候选判断和人工答案不会进入模型输入。
+人工标签为空时 matched 留空，准确率显示 n/a。旁边的 `.run.json` 记录实际模型、
+输入和 prompt 的 SHA-256 及运行数量；批跑关闭 Agents tracing，仅调用配置的模型端点。
+输出不能覆盖输入或已存在的结果，请每次使用新文件名。
+
+~~~bash
+uv run python classify.py \
+  --cases ../annotation-toolkit/workbench/input/cases-2026-09-05T12-39-47-636Z.csv \
+  --output ../annotation-toolkit/workbench/output/cases-2026-09-05T12-39-47-636Z_engine.csv \
+  --concurrency 5
+~~~
+
 ## 快速开始
 
 需要 Python 3.12 和 uv。
