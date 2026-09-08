@@ -234,9 +234,9 @@ class CozieMedicalReviewProfile:
                 QuestionSpec(
                     "text",
                     "medical_rationale",
-                    "安全分类医学逻辑",
-                    description="用1-2句话说明选择该安全分类的关键事实和理由。",
-                    required=True,
+                    "安全分类医学逻辑（选填）",
+                    description="可用1-2句话补充选择该安全分类的关键事实和理由；不需要补充可留空。",
+                    required=False,
                 ),
                 QuestionSpec(
                     "label",

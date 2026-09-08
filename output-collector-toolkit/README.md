@@ -1,5 +1,7 @@
 # Output 收集器
 
+生成和收集 Case 的完整操作步骤见 [用 Langfuse 生成 Case：操作指南](../langfuse-toolkit/docs/case-generation-guide.md)。
+
 供内部成员整理 Langfuse Output 的工作台：登录后收集问题与画像、配对医生候选材料，导出 Argilla 标注所需的 CSV。每个账号有独立工作空间，内容自动保存到服务器，换电脑也能继续。
 
 沿用 cozy_agent 的 FastAPI、uv、SQLAlchemy / SQLite、Alembic 和 Docker Compose 组织方式。当前为单实例、单 worker，前端与 API 同源，由一个容器提供；数据库直接保存在宿主机的 `backend/data/collector.db`。账号独立于 Langfuse、Argilla。每个人用自己的邮箱和密码自行注册，注册后直接进入工作空间，只能读取、修改和导出自己的材料。无需管理员开通、验证码或邮件验证。

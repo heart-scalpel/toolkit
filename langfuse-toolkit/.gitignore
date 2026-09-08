@@ -1,0 +1,7 @@
+.env
+.venv/
+workbench/input/*
+!workbench/input/.gitkeep
+
+# Source package; override the repository-wide Flask instance/ ignore.
+!app/instance/

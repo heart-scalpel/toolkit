@@ -1,0 +1,12 @@
+{
+  "modelParams": {
+    "provider": "replace-with-provider-from-llms-list",
+    "model": "replace-with-model-name",
+    "temperature": 0.2
+  },
+  "messages": [
+    {"role": "system", "content": "请简洁回答用户的问题。"},
+    {"role": "user", "content": "{{question}}"}
+  ],
+  "variables": {"question": "2 + 2 等于多少？"}
+}

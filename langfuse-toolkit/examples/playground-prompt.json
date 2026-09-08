@@ -1,0 +1,8 @@
+{
+  "modelParams": {
+    "provider": "replace-with-provider-from-llms-list",
+    "model": "replace-with-model-name"
+  },
+  "prompt": {"name": "assistant/support", "label": "production"},
+  "variables": {"question": "2 + 2 等于多少？"}
+}

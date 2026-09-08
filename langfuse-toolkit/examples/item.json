@@ -1,0 +1,8 @@
+{
+  "id": "automation-smoke-case-001",
+  "datasetName": "automation/smoke",
+  "input": {"question": "What is 2 + 2?"},
+  "expectedOutput": "4",
+  "metadata": {"synthetic": true},
+  "status": "ACTIVE"
+}

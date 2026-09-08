@@ -5,12 +5,12 @@
 
 ## 工具列表
 
-### Langfuse 母婴用例提示词
+### Langfuse 工具包
 
 目录：[langfuse-toolkit](./langfuse-toolkit/README.md)
 
-两份可直接粘贴到 Langfuse 的 Chat Prompt，分别生成用户问题与画像，以及医生候选问诊材料。
-附输出 Schema 与 CSV 字段映射；产品在 Langfuse 编辑、试跑和保存版本，无需安装依赖。
+通过 `.env` 和命令行自动化 Langfuse 项目发现、Prompt 版本发布、数据集维护、Trace / Session 查询、评分写回及实验记录查询，支持批量执行和 `--dry-run` 预览。
+保留问题与画像生成、医生候选问诊材料两份 Chat Prompt 模板，以及输出 Schema、CSV 字段映射和页面操作指南。
 
 ### Output 收集器工具包
 

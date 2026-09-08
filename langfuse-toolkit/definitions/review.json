@@ -1,0 +1,8 @@
+{
+  "name": "medical/case-review-draft",
+  "type": "chat",
+  "prompt": [
+    {"role": "system", "contentFile": "../prompts/review.system.txt"},
+    {"role": "user", "contentFile": "../prompts/review.user.txt"}
+  ]
+}

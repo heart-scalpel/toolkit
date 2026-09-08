@@ -1,0 +1,24 @@
+[project]
+name = "langfuse-toolkit"
+version = "0.4.0"
+description = "Automate Langfuse projects, prompts, datasets, observability and evaluation workflows."
+requires-python = ">=3.12"
+dependencies = ["httpx>=0.28,<0.29", "python-dotenv>=1,<2"]
+
+[dependency-groups]
+dev = ["pytest>=9,<10", "ruff>=0.15,<1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E4", "E7", "E9", "F", "I", "RUF", "SIM", "UP"]
+
+[tool.uv]
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default-groups = ["dev"]

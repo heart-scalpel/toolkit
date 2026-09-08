@@ -1,8 +1,48 @@
-# Langfuse 母婴用例提示词
+# Langfuse 工具包
+
+通过命令行操作 Langfuse 后台，按 `instance`（实例）、`org`（组织）、`project`（项目）、`workflow`（工作流）分层。支持 Prompt 维护、LLM 查询与 Playground、数据集、调用记录、评分和实验结果查询。
+
+## 开始使用
+
+需要 Python 3.12 和 uv。在本目录执行：
+
+```bash
+cp -n '.env.example' '.env'
+uv sync
+```
+
+在 `.env` 填入 `LANGFUSE_BASE_URL`、`LANGFUSE_PROJECT_PUBLIC_KEY`、`LANGFUSE_PROJECT_SECRET_KEY`，查询密钥所属项目：
+
+```bash
+uv run python run.py project info
+```
+
+将返回的项目 ID 填入 `LANGFUSE_PROJECT_ID`，然后执行：
+
+```bash
+uv run python run.py project check
+uv run python run.py project llms list --all
+uv run python run.py project prompts list
+```
+
+项目 ID 与密钥不匹配时会停止项目操作。组织项目列表使用 `org projects list`，需另配 `LANGFUSE_ORG_PUBLIC_KEY` / `LANGFUSE_ORG_SECRET_KEY`；`instance health` 无需密钥。已有 `.env` 不必重建，旧的 `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` 仍作为项目密钥读取。
+
+## 使用文档
+
+- [命令说明](docs/commands.md)：各层的用途、配置和常用命令。
+- [工作流](docs/automation.md)：组合多个操作，统一校验、顺序执行。
+- [代码分层](docs/architecture.md)：模块职责与依赖方向。
+- 其他参数：例如 `uv run python run.py project prompts save --help`。
+
+命令已按上述四组重新设计，旧顶层命令不再保留；已有脚本请按命令说明迁移。`.env` 不提交 Git。
+
+## 母婴用例提示词与流程
+
+日常操作请看 [用 Langfuse 生成 Case：操作指南](docs/case-generation-guide.md)，按步骤完成生成、收集和导出；已预留截图位置。
 
 一期标注对象：**用户输入＋画像 → 候选安全分类、初步判断及依据、可能问诊回应和必要追问**。所有材料供医生确认或修改。本期全部单轮，不生成历史对话、RAG/工具测试或被测系统真实回复，也不要求完整的App用户答复。
 
-仍由产品在Langfuse维护两个Chat Prompt。本目录提供初始模板与字段约定，无需安装依赖。目标是参考旧340条的场景生成全新100条问题及画像，旧行内容与标签不直接继承。
+产品可在Langfuse页面或通过本工具包维护两个Chat Prompt。本目录保留初始模板与字段约定，直接复制模板不需要安装依赖。目标是参考旧340条的场景生成全新100条问题及画像，旧行内容与标签不直接继承。
 
 ## 接收生成结果
 

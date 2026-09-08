@@ -2,7 +2,7 @@
 删除
 ```
 uv run python run.py \
-  --delete-dataset medical-case-review-100-20260907 \
+  --delete-dataset medical-case-review-50-20260907 \
   --yes
 ```
 
@@ -17,11 +17,11 @@ uv run python run.py \
   --profile cozie-medical-review \
   --mode review \
   --offset 1 \
-  --limit 18 \
+  --limit 50 \
   --random \
-  --min-submitted 2 \
+  --min-submitted 1 \
   --input workbench/output/cases-2026-09-07T01-19-57-173Z_engine.csv \
-  --dataset medical-case-review-18-p2
+  --dataset medical-case-review-50-20260907
 ```
 
 模板

@@ -1,0 +1,8 @@
+{
+  "name": "medical/user-question-generator",
+  "type": "chat",
+  "prompt": [
+    {"role": "system", "contentFile": "../prompts/questions.system.txt"},
+    {"role": "user", "contentFile": "../prompts/questions.user.txt"}
+  ]
+}

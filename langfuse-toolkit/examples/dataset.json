@@ -1,0 +1,5 @@
+{
+  "name": "automation/smoke",
+  "description": "Synthetic examples for an automation workflow",
+  "metadata": {"managedBy": "langfuse-toolkit"}
+}

@@ -1,0 +1,8 @@
+{
+  "id": "replace-with-a-stable-score-id",
+  "traceId": "replace-with-an-existing-trace-id",
+  "name": "answer_quality",
+  "dataType": "NUMERIC",
+  "value": 0.9,
+  "comment": "Evaluation supplied by an automation workflow"
+}

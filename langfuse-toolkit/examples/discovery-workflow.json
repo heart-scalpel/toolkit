@@ -1,0 +1,8 @@
+{
+  "commands": [
+    ["instance", "health"],
+    ["org", "projects", "list"],
+    ["project", "info"],
+    ["project", "llms", "list", "--all"]
+  ]
+}

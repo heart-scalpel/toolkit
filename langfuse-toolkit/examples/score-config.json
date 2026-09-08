@@ -1,0 +1,7 @@
+{
+  "name": "answer_quality",
+  "dataType": "NUMERIC",
+  "minValue": 0,
+  "maxValue": 1,
+  "description": "Answer quality, from 0 (poor) to 1 (good)"
+}
