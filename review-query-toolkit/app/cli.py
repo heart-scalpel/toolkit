@@ -19,6 +19,7 @@ from app.dataset import (
     parse_assignment,
     rows_to_csv,
 )
+from app.evaluation import evaluate, render_markdown
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = (
@@ -33,6 +34,8 @@ DEFAULT_DISPLAY_COLUMNS = (
     "sub_capability",
     "predicted_safety_class",
     "medical_review_label",
+    "expected_safety_class",
+    "material_review",
     "boundary_status",
     "reason_codes",
     "needs_expert_adjudication",
@@ -49,7 +52,7 @@ def _add_common_options(
     parser.add_argument("--input", type=Path, default=default(DEFAULT_INPUT), help="输入 CSV 文件")
     parser.add_argument(
         "--format",
-        choices=("table", "json", "csv"),
+        choices=("table", "json", "csv", "markdown"),
         default=default("table"),
         help="输出格式，默认 table",
     )
@@ -137,8 +140,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     reference.add_argument(
         "--review-field",
-        default="medical_review_label",
-        help="人工审核字段，默认 medical_review_label",
+        default=None,
+        help="人工审核字段，自动识别 medical_review_label 或 expected_safety_class",
+    )
+    evaluation = subparsers.add_parser(
+        "evaluate",
+        parents=[subcommand_common],
+        help="医生审核多维评估（分类、材料、分组和填写检查）",
+    )
+    evaluation.add_argument(
+        "--group-by", default=None, help="分组字段，逗号分隔；默认场景、人工类别、引擎类别和审核人"
+    )
+    subparsers.add_parser(
+        "review-issues", parents=[subcommand_common], help="逐条列出医生审核的填写问题及待裁决事项"
     )
     subparsers.add_parser("query", parents=[subcommand_common], help="逐行查询和显示响应")
     subparsers.add_parser("cases", parents=[subcommand_common], help="按 case_id 折叠为一行查看")
@@ -291,6 +305,8 @@ def _write_or_print(
 
     if args.format == "json":
         text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    elif args.format == "markdown":
+        text = render_markdown(data)
     elif args.format == "csv":
         text = rows_to_csv(output_columns, _csv_rows(rows, output_columns))
     else:
@@ -328,6 +344,8 @@ def _subset(dataset: ReviewDataset, rows: Sequence[Mapping[str, str]]) -> Review
 
 def run(args: argparse.Namespace) -> int:
     _validate_window(args)
+    if args.format == "markdown" and args.command != "evaluate":
+        raise ValueError("--format markdown is only supported by evaluate")
     dataset = ReviewDataset.from_csv(args.input)
 
     if args.command == "fields":
@@ -337,6 +355,22 @@ def run(args: argparse.Namespace) -> int:
         return 0
 
     selected = _filtered_rows(dataset, args)
+    if args.command in {"evaluate", "review-issues"}:
+        group_fields = (
+            [field.strip() for field in args.group_by.split(",") if field.strip()]
+            if getattr(args, "group_by", None)
+            else None
+        )
+        report = evaluate(_subset(dataset, selected), group_fields)
+        if args.command == "review-issues":
+            values = _window(_sorted(report["issues"], args), args)
+            columns = ("case_id", "annotator", "issue", "description")
+            _write_or_print(values, args, columns=columns)
+        else:
+            if args.format == "table":
+                args.format = "markdown"
+            _write_or_print(report, args)
+        return 0
     if args.command == "summary":
         report = _subset(dataset, selected).summary()
         _write_or_print(report, args)

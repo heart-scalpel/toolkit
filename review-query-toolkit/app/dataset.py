@@ -20,17 +20,23 @@ SAFETY_LEVEL_RANK = {label: index for index, label in enumerate(SAFETY_LEVELS, s
 
 QUESTION_FIELDS = (
     "medical_review_label",
+    "expected_safety_class",
     "boundary_status",
     "reason_codes",
+    "material_review",
     "needs_expert_adjudication",
 )
-MULTI_VALUE_FIELDS = {"medical_review_label", "reason_codes"}
+MULTI_VALUE_FIELDS = {"medical_review_label", "boundary_status", "reason_codes"}
 DEFAULT_SEARCH_FIELDS = (
     "case_id",
     "user_input",
     "review_context",
     "model_assessment",
     "medical_rationale",
+    "user_profile",
+    "candidate_materials",
+    "confirmed_consultation_response",
+    "confirmed_follow_ups",
 )
 
 
@@ -60,7 +66,7 @@ def compare_value(field: str, value: object) -> tuple[str, ...] | str:
     """Return a canonical representation used for equality and agreement."""
 
     if field in MULTI_VALUE_FIELDS:
-        return tuple(sorted(normalize(item) for item in parse_multi_value(value)))
+        return tuple(sorted({normalize(item) for item in parse_multi_value(value)}))
     return normalize(value)
 
 
@@ -119,7 +125,12 @@ class ReviewDataset:
                 )
             rows: list[dict[str, str]] = []
             for line_number, raw_row in enumerate(reader, start=2):
-                row = {column: raw_row.get(column, "") or "" for column in columns}
+                if None in raw_row:
+                    raise ValueError(f"row {line_number} has more values than header columns")
+                row = {
+                    column: raw_row.get(raw_column, "") or ""
+                    for column, raw_column in zip(columns, raw_columns, strict=True)
+                }
                 if not normalize(row["case_id"]):
                     raise ValueError(f"row {line_number} has an empty case_id")
                 rows.append(row)
@@ -223,12 +234,17 @@ class ReviewDataset:
             for rows in paired.values()
         )
         strict_level_agree = 0
+        safety_field = (
+            "medical_review_label"
+            if "medical_review_label" in self.columns
+            else "expected_safety_class"
+        )
         for rows in paired.values():
             pair = self._pair(rows)
-            if pair is None or "medical_review_label" not in self.columns:
+            if pair is None or safety_field not in self.columns:
                 continue
-            if strict_safety_level(pair[0].get("medical_review_label")) == strict_safety_level(
-                pair[1].get("medical_review_label")
+            if strict_safety_level(pair[0].get(safety_field)) == strict_safety_level(
+                pair[1].get(safety_field)
             ):
                 strict_level_agree += 1
 
@@ -267,7 +283,7 @@ class ReviewDataset:
     def reference_agreement_report(
         self,
         reference_field: str = "predicted_safety_class",
-        review_field: str = "medical_review_label",
+        review_field: str | None = None,
     ) -> dict[str, object]:
         """Compare a reference-engine field with each annotator's answer.
 
@@ -277,6 +293,11 @@ class ReviewDataset:
         label used by the source dataset.
         """
 
+        review_field = review_field or (
+            "medical_review_label"
+            if "medical_review_label" in self.columns
+            else "expected_safety_class"
+        )
         for field in (reference_field, review_field):
             if field not in self.columns:
                 raise ValueError(f"unknown CSV column: {field}")
@@ -287,6 +308,20 @@ class ReviewDataset:
         )
         all_reviewers_agree = 0
         inconsistent_reference_cases = 0
+
+        skipped = 0
+        for row in self.rows:
+            if not _status_is_submitted(row):
+                continue
+            if not row.get(reference_field, "").strip() or not parse_multi_value(
+                row.get(review_field, "")
+            ):
+                skipped += 1
+                continue
+            matches = _reference_matches(row[reference_field], row[review_field], review_field)
+            stats = annotator_stats[row.get("annotator_username", "")]
+            stats["compared"] += 1
+            stats["agree" if matches else "disagree"] += 1
 
         for rows in paired.values():
             pair = self._pair(rows)
@@ -303,13 +338,9 @@ class ReviewDataset:
             reference_value = pair[0].get(reference_field, "")
             pair_agrees = []
             for row in pair:
-                username = row.get("annotator_username", "")
                 matches = _reference_matches(
                     reference_value, row.get(review_field, ""), review_field
-                )
-                stats = annotator_stats[username]
-                stats["compared"] += 1
-                stats["agree" if matches else "disagree"] += 1
+                ) and bool(reference_value.strip() and parse_multi_value(row.get(review_field)))
                 pair_agrees.append(matches)
             if pair_agrees and all(pair_agrees):
                 all_reviewers_agree += 1
@@ -318,6 +349,9 @@ class ReviewDataset:
         return {
             "reference_field": reference_field,
             "review_field": review_field,
+            "unit": "submitted_response",
+            "compared_responses": sum(stats["compared"] for stats in annotator_stats.values()),
+            "skipped_missing_responses": skipped,
             "paired_cases": compared,
             "inconsistent_reference_cases": inconsistent_reference_cases,
             "annotators": {
@@ -520,13 +554,13 @@ def group_counts(
         raise ValueError(f"unknown CSV column: {field}")
     if unit not in {"rows", "cases"}:
         raise ValueError("unit must be rows or cases")
-    source_rows = list(rows or dataset.rows)
+    source_rows = list(dataset.rows if rows is None else rows)
     counts: Counter[str] = Counter()
     if unit == "rows":
         for row in source_rows:
             if explode:
                 parsed = parse_multi_value(row[field])
-                values = parsed or ("(blank)",)
+                values = set(parsed) or ("(blank)",)
             else:
                 values = (row[field] or "(blank)",)
             for value in values:
@@ -544,7 +578,9 @@ def group_counts(
                     values.add(row[field] or "(blank)")
             for value in values or {"(blank)"}:
                 counts[value or "(blank)"] += 1
-    total = sum(counts.values())
+    total = (
+        len(source_rows) if unit == "rows" else len({row["case_id"].strip() for row in source_rows})
+    )
     return [
         {"value": value, "count": count, "rate": count / total if total else None}
         for value, count in sorted(counts.items(), key=lambda item: (-item[1], str(item[0])))

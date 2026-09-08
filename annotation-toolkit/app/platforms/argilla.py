@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import secrets
+from copy import deepcopy
 from types import SimpleNamespace
 from typing import cast
 
@@ -112,14 +113,7 @@ def create_dataset(
     settings: rg.Settings,
     records: list[rg.Record],
 ) -> rg.Dataset:
-    workspace_resource = client.workspaces(workspace)
-    if workspace_resource is None:
-        raise ValueError(f"workspace {workspace!r} not found")
-    if any(dataset.name == dataset_name for dataset in workspace_resource.datasets):
-        raise ValueError(
-            f"dataset {dataset_name!r} already exists in workspace {workspace!r}; "
-            "use --dataset to choose a new name"
-        )
+    _ensure_dataset_does_not_exist(client, workspace, dataset_name)
 
     dataset = rg.Dataset(
         name=dataset_name,
@@ -129,6 +123,17 @@ def create_dataset(
     ).create()
     dataset.records.log(records)
     return dataset
+
+
+def _ensure_dataset_does_not_exist(client: rg.Argilla, workspace: str, dataset_name: str) -> None:
+    workspace_resource = client.workspaces(workspace)
+    if workspace_resource is None:
+        raise ValueError(f"workspace {workspace!r} not found")
+    if any(dataset.name == dataset_name for dataset in workspace_resource.datasets):
+        raise ValueError(
+            f"dataset {dataset_name!r} already exists in workspace {workspace!r}; "
+            "use --dataset to choose a new name"
+        )
 
 
 def get_dataset(client: rg.Argilla, workspace: str, dataset_name: str) -> rg.Dataset:
@@ -147,6 +152,104 @@ def get_dataset(client: rg.Argilla, workspace: str, dataset_name: str) -> rg.Dat
         f"dataset {dataset_name!r} not found in workspace {workspace!r}; "
         f"available datasets: {choices}"
     )
+
+
+def _settings_content(settings: rg.Settings) -> dict:
+    """Keep the complete saved schema without server-owned identities or timestamps."""
+    content = deepcopy(settings.serialize())
+    for collection in ("fields", "questions", "metadata", "vectors"):
+        for item in content[collection]:
+            for key in ("id", "dataset_id", "inserted_at", "updated_at"):
+                item.pop(key, None)
+    return content
+
+
+def _record_content(record: rg.Record) -> dict:
+    """Copy task inputs, excluding feedback, status and the server's record ID."""
+    return deepcopy(
+        {
+            "id": record.id,
+            "fields": record.fields.to_dict(),
+            "metadata": record.metadata.to_dict(),
+            "vectors": record.vectors.to_dict(),
+        }
+    )
+
+
+def clone_dataset(
+    *,
+    client: rg.Argilla,
+    workspace: str,
+    source_name: str,
+    dataset_name: str,
+    min_submitted: int,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    """Clone the saved task without feedback; a dry run only reads the platform."""
+    if not dataset_name.strip() or dataset_name == source_name:
+        raise ValueError("clone destination must be a new, non-empty dataset name")
+    if min_submitted < 1:
+        raise ValueError("--min-submitted must be at least 1")
+    _ensure_dataset_does_not_exist(client, workspace, dataset_name)
+    source = get_dataset(client, workspace, source_name)
+    source.settings.get()
+    settings_content = _settings_content(source.settings)
+    settings_content["distribution"] = rg.TaskDistribution(min_submitted=min_submitted).to_dict()
+    # Argilla 2.8 uses this same constructor for Settings.from_json and Dataset's copy.
+    settings = rg.Settings._from_dict(deepcopy(settings_content))
+    contents = [
+        _record_content(record)
+        for record in source.records(
+            with_responses=False, with_suggestions=False, with_vectors=True
+        )
+    ]
+    if not contents:
+        raise ValueError(f"source dataset {source_name!r} has no records to clone")
+    record_ids = [content["id"] for content in contents]
+    if any(not record_id for record_id in record_ids) or len(set(record_ids)) != len(record_ids):
+        raise ValueError("source dataset contains empty or duplicate record IDs")
+    records = [rg.Record(**content) for content in contents]
+    summary = {
+        "source_dataset": source_name,
+        "dataset": dataset_name,
+        "workspace": workspace,
+        "records": len(records),
+        "record_ids": record_ids,
+        "questions": [question.name for question in settings.questions],
+        "min_submitted": min_submitted,
+        "responses_copied": False,
+        "suggestions_copied": False,
+        "dry_run": dry_run,
+        "created": False,
+        "verified": False,
+    }
+    if dry_run:
+        return summary
+
+    target = create_dataset(
+        client=client,
+        workspace=workspace,
+        dataset_name=dataset_name,
+        settings=settings,
+        records=records,
+    )
+    target.settings.get()
+    copied = list(target.records(with_responses=True, with_suggestions=True, with_vectors=True))
+    expected_by_id = {content["id"]: content for content in contents}
+    if (
+        _settings_content(target.settings) != settings_content
+        or len(copied) != len(contents)
+        or {record.id: _record_content(record) for record in copied} != expected_by_id
+        or any(
+            record.responses.to_dict() or record.suggestions.to_dict() or record.status != "pending"
+            for record in copied
+        )
+    ):
+        raise ValueError(
+            f"clone verification failed for {dataset_name!r}; "
+            "the new dataset was created and needs inspection before annotation"
+        )
+    return summary | {"created": True, "verified": True}
 
 
 def delete_dataset(client: rg.Argilla, workspace: str, dataset_name: str) -> None:

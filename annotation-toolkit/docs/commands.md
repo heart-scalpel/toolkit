@@ -38,16 +38,24 @@ uv run python run.py \
   --dataset xxx
 ```
 
+clone模板
+```
+uv run python run.py \
+  --clone-dataset medical-case-review-50-20260907 \
+  --dataset medical-case-review-50-20260907-product \
+  --min-submitted 2
+```
+
 查看数据进度
 ```
 uv run python run.py \
-  --progress-dataset medical-safety-review-test
+  --progress-dataset medical-case-review-50-20260907-product
 ```
 
 导出
 ```
 uv run python run.py \
-  --export-dataset medical-safety-review-test
+  --export-dataset medical-case-review-50-20260907
 ```
 
 创建用户

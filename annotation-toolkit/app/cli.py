@@ -42,7 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="CSV input; defaults to the file declared by the selected profile",
     )
     parser.add_argument("--mode", default="review", help="Profile-defined annotation mode")
-    parser.add_argument("--dataset", help="Defaults to a profile- and mode-specific v1 name")
+    parser.add_argument(
+        "--dataset",
+        help="Destination name; required for cloning, otherwise defaults to the profile name",
+    )
     parser.add_argument("--guidelines", type=Path, help="Use batch-specific Markdown guidelines")
     parser.add_argument(
         "--limit",
@@ -72,9 +75,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--min-submitted", type=int, default=2)
     parser.add_argument(
-        "--dry-run", action="store_true", help="Validate without contacting a platform"
+        "--dry-run",
+        action="store_true",
+        help="Validate without writing; CSV imports are offline, cloning reads the platform",
     )
     actions = parser.add_mutually_exclusive_group()
+    actions.add_argument(
+        "--clone-dataset",
+        metavar="EXACT_NAME",
+        help="Copy every record and the saved form to --dataset, without responses or suggestions",
+    )
     actions.add_argument(
         "--delete-dataset",
         metavar="EXACT_NAME",
@@ -179,6 +189,25 @@ def _write_export(path: Path, columns: list[str], rows: list[dict[str, object]])
 def run(args: argparse.Namespace) -> int:
     if args.platform != "argilla":
         raise ValueError(f"unsupported platform: {args.platform}")
+    if args.clone_dataset:
+        if not args.dataset or not args.dataset.strip():
+            raise ValueError("--clone-dataset requires --dataset with a new destination name")
+        if args.dataset == args.clone_dataset:
+            raise ValueError("clone source and destination must have different names")
+        if (
+            args.profile
+            or args.input is not None
+            or args.guidelines is not None
+            or args.limit is not None
+            or args.offset != 0
+            or args.random
+            or args.mode != "review"
+        ):
+            raise ValueError(
+                "--clone-dataset copies all saved records and settings; "
+                "do not combine it with --profile, --input, --guidelines, --limit, "
+                "--offset, --random, or a different --mode"
+            )
     profile = get_profile(args.profile) if args.profile else None
     user_prefix = args.user_prefix or (
         profile.default_user_prefix if profile is not None else "annotator"
@@ -200,6 +229,25 @@ def run(args: argparse.Namespace) -> int:
 
     api_url = args.api_url or os.getenv("ARGILLA_API_URL", "http://localhost:6900")
     api_key = args.api_key or os.getenv("ARGILLA_API_KEY")
+
+    if args.clone_dataset:
+        if not api_key:
+            raise ValueError(
+                "ARGILLA_API_KEY is missing. Copy it from Argilla > My Settings into .env."
+            )
+        client = rg.Argilla(api_url=api_url, api_key=api_key)
+        requested_workspace = args.workspace or os.getenv("ARGILLA_WORKSPACE", "default")
+        workspace = argilla.resolve_workspace(client, requested_workspace)
+        summary = argilla.clone_dataset(
+            client=client,
+            workspace=workspace,
+            source_name=args.clone_dataset,
+            dataset_name=args.dataset,
+            min_submitted=args.min_submitted,
+            dry_run=args.dry_run,
+        )
+        print(json.dumps(summary | {"url": api_url}, ensure_ascii=False, indent=2))
+        return 0
 
     if args.export_dataset:
         if args.dry_run:

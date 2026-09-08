@@ -179,6 +179,36 @@ uv run python run.py --profile cozie-safety --mode comparison
 uv run python run.py --help
 ~~~
 
+## 复制同一批题目供另一组人标注
+
+已经用 `--random` 创建数据集后，再跑导入命令会重新抽样。要复用完全相同的题目，
+使用 `--clone-dataset` 直接读取旧数据集的全部记录，不需要重新读取原 CSV：
+
+~~~bash
+uv run python run.py \
+  --clone-dataset medical-case-review-50-20260907 \
+  --dataset medical-case-review-50-20260907-product \
+  --min-submitted 2 \
+  --dry-run
+~~~
+
+复制模式下 `--dry-run` 会连接 Argilla，只读取并检查源数据集和目标名称，输出题目
+数量、完整记录 ID 列表、标注问题和提交数，不创建数据集。确认后去掉 `--dry-run`
+执行复制。普通 CSV 导入的 `--dry-run` 仍然离线运行。
+
+复制保留原题内容、`case_id`、其他元数据、向量，以及平台上当前保存的标注表单、
+选项和审核说明；不带任何已有回答（含草稿和丢弃）、预填建议或完成状态。
+`--min-submitted` 默认 2，可显式调整；两位产品同事用各自账号进入新数据集，各自
+标注这批题。这个参数只是每题完成所需的提交数，不会自动创建账号或限制指定人员。
+
+必须指定一个新的 `--dataset` 名称。同名数据集不会覆盖，源数据集不会修改。
+复制全部题目，因此不能同时指定 `--profile`、`--input`、`--guidelines`、`--limit`、
+非零 `--offset`、`--random` 或其他 `--mode`。复制完成后自动读回新数据集，
+核对表单、每条记录的 ID 和内容，并检查没有回答或预填建议；只有核对通过才输出
+`verified: true`。若上传或核对失败，新数据集可能已创建，应检查后再交给标注者。
+
+`--export-dataset` 只导出已提交的标注，会漏掉未标注题，不用于复制完整题集。
+
 ## 删除指定数据集
 
 删除只接受完整、精确的数据集名称。默认会要求再次输入完整名称确认：

@@ -3,6 +3,9 @@
 这是一个多工具集合。每个工具都放在独立目录中，并拥有自己的依赖、代码、
 测试、说明和工作台，互相之间不共享运行环境。
 
+医疗数据生成、医生审核、公共组件与医生方法的技术闭环方案见
+[医疗引擎 Harness 梳理](docs/medical-engine-harness/README.md)，包含源码对照、任务依赖和验收契约。
+
 ## 工具列表
 
 ### Langfuse 工具包
@@ -49,13 +52,14 @@ uv run python run.py --profile cozie-safety --mode review --dry-run
 
 目录：[review-query-toolkit](./review-query-toolkit/README.md)
 
-针对审核导出的 CSV 做概览、筛选、双人一致性分析、分歧查询和结果导出：
+针对审核导出的 CSV 做概览、筛选、单人审核质量评估、双人一致性分析、分歧查询和结果导出：
 
 ```bash
 cd review-query-toolkit
 uv sync
 uv run python run.py summary
 uv run python run.py agreement --completed-only
+uv run python run.py evaluate --input workbench/input/review.csv --format markdown
 ```
 
 ### XLSX 转 CSV
