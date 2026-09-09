@@ -4,7 +4,7 @@
 测试、说明和工作台，互相之间不共享运行环境。
 
 医疗引擎原理与平台建设方案见
-[一起医疗：引擎原理与 ToC 平台建设](docs/medical-engine-harness/README.md)，包含框架选型、动态画像、医疗能力装配与扩展路线。
+[医疗 Harness：以场景和画像驱动的一期建设方案](docs/medical-engine-harness/README.md)，从七张审核统计图明确场景配置、咨询执行、质量改进及平台扩展路线。
 
 ## 工具列表
 
